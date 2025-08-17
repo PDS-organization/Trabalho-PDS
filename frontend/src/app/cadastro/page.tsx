@@ -12,7 +12,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import StepHeader from "@/components/step-header";
 import { SPORTS, SPORT_IDS, type SportId } from "@/data/sports";
-
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { ChevronDownIcon } from "lucide-react";
 
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -78,9 +80,30 @@ async function fetchViaCep(cep: string) {
   };
 }
 
+function toYMD(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;               // "YYYY-MM-DD" (sem timezone bug)
+}
+
+function parseYMD(s: string | undefined) {
+  if (!s) return undefined;
+  const [y, m, d] = s.split("-").map(Number);
+  if (!y || !m || !d) return undefined;
+  return new Date(y, m - 1, d);          // Date local
+}
+
+function formatBR(s: string | undefined) {
+  if (!s) return "";
+  const [y, m, d] = s.split("-");
+  return `${d}/${m}/${y}`;               // "DD/MM/YYYY"
+}
+
 export default function CadastroPage() {
   const router = useRouter();
-  const birthdateRef = useRef<HTMLInputElement | null>(null);
+  const [birthOpen, setBirthOpen] = useState(false);
+
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -145,11 +168,24 @@ export default function CadastroPage() {
   }
 
   async function onSubmit(values: FormValues) {
-    // por enquanto só simulamos sucesso e vamos para /login
-    console.log("[SIGNUP] payload:", values);
-    toast.success("Dados prontos! Integração com backend virá depois.");
-    // redireciona se quiser
-    // router.push("/login");
+    try {
+      const res = await fetch("/api/fake/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error("Falha ao salvar", { description: data?.message ?? "Tente novamente." });
+        return;
+      }
+
+      toast.success("Cadastro salvo localmente! (fake backend)");
+      router.push("/"); // habilite se quiser redirecionar
+    } catch (e) {
+      toast.error("Erro inesperado", { description: "Verifique a conexão." });
+    }
   }
 
   return (
@@ -277,23 +313,47 @@ export default function CadastroPage() {
                   control={form.control}
                   name="birthdate"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="flex flex-col">
                       <FormLabel>Data de nascimento</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field}
-                          ref={(el) => {
-                            field.ref(el);
-                            birthdateRef.current = el;
-                          }}
-                          onClick={() => birthdateRef.current?.showPicker?.()}
-                          onFocus={() => birthdateRef.current?.showPicker?.()}
-                        />
 
-                      </FormControl>
+                      <Popover open={birthOpen} onOpenChange={setBirthOpen}>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              id="birthdate"
+                              className="w-full justify-between font-normal"
+                            >
+                              {field.value ? formatBR(field.value) : "Selecione a data"}
+                              <ChevronDownIcon className="h-4 w-4 opacity-70" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+
+                        <PopoverContent className="w-auto overflow-hidden p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={parseYMD(field.value)}
+                            captionLayout="dropdown"               // igual ao exemplo
+                            onSelect={(date) => {
+                              if (date) {
+                                field.onChange(toYMD(date));       // salva como "YYYY-MM-DD"
+                                setBirthOpen(false);
+                              }
+                            }}
+                          // opcionais:
+                          // disabled={(d) => d > new Date()}     // evita datas futuras
+                          // fromYear={1950} toYear={new Date().getFullYear()}
+                          />
+                        </PopoverContent>
+                      </Popover>
+
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+
 
                 {/* Gênero */}
                 <FormField
@@ -425,7 +485,7 @@ export default function CadastroPage() {
             {step === 3 && (
               <div className="space-y-4">
                 <StepHeader
-                  title="Qual esporte você gosta?"
+                  title="Quais esportes você gosta ou gostaria de praticar?"
                   sub="Você pode escolher mais de um."
                 />
 

@@ -42,9 +42,4 @@ export const SPORTS: SportDef[] = [
   { id: "natacao", label: "Natação", Icon: natacaoIcon },
   { id: "tenis", label: "Tênis", Icon: tenisIcon },
   { id: "volei", label: "Vôlei", Icon: voleiIcon },
-  { id: "volei", label: "Vôlei", Icon: voleiIcon },
-  { id: "volei", label: "Vôlei", Icon: voleiIcon },
-  { id: "volei", label: "Vôlei", Icon: voleiIcon },
-
-
 ];
