@@ -1,7 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-
+@tailwind utilities;
 @custom-variant dark (&:is(.dark *));
+
+
 
 @theme inline {
   --color-background: var(--background);
@@ -119,4 +121,9 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+}
+
+@utility app-container {
+  @apply mx-auto max-w-screen-md px-3 sm:px-4 md:px-6;
 }
