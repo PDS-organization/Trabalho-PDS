@@ -10,6 +10,7 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
   NavigationMenuContent,
+  NavigationMenuViewport,
 } from "@/components/ui/navigation-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search, PlusCircle } from "lucide-react";
@@ -21,7 +22,8 @@ function Logo({ className = "h-6 w-auto" }: { className?: string }) {
 }
 
 function useMe() {
-  const [me, setMe] = useState<{ name?: string; email?: string; avatarUrl?: string } | null>(null);
+  const [me, setMe] = useState<{ name?: string; email?: string; avatarUrl?: string; username?: string } | null>(null);
+
   useEffect(() => {
     let mounted = true;
     fetch("/api/fake/me").then(async (r) => {
@@ -38,11 +40,14 @@ function useMe() {
 export default function Navbar() {
   const pathname = usePathname();
   const me = useMe();
+  const profileHref = me?.username ? `/app/u/${me.username}` : "/app";
+
 
   const isActive = (href: string) => pathname?.startsWith(href);
 
+
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="fixed inset-x-0 top-0 z-[100] border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 overflow-x-clip">
       <div className="app-container">
         <div className="flex h-14 items-center">
           <div className="flex min-w-0 flex-1">
@@ -54,6 +59,14 @@ export default function Navbar() {
           <nav className="hidden sm:flex flex-1 justify-center">
             <NavigationMenu>
               <NavigationMenuList>
+                <NavigationMenuViewport
+                  className="absolute left-1/2 top-full z-50
+               w-[var(--radix-navigation-menu-viewport-width)]
+               -translate-x-1/2 overflow-hidden rounded-md border
+               bg-popover text-popover-foreground shadow-md
+               data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95
+               data-[state=closed]:animate-out data-[state=closed]:zoom-out-95 data-[state=closed]:fade-out-0"
+                />
                 <NavigationMenuItem>
                   <NavigationMenuLink asChild active={isActive("/app/buscar")}>
                     <Link
@@ -105,7 +118,7 @@ export default function Navbar() {
                     title="Conta"
                   >
                     <Link
-                      href="/app/perfil"
+                      href={profileHref}
                       className="inline-flex"
                       onClick={(e) => e.stopPropagation()} // evita toggling do menu
                     >
@@ -118,14 +131,14 @@ export default function Navbar() {
                     </Link>
                   </NavigationMenuTrigger>
 
-                  <NavigationMenuContent className="p-2">
-                    <ul className="grid gap-1 min-w-[180px]">
+                  <NavigationMenuContent className="p-2 w-max min-w-[4rem] max-w-[calc(100vw-1rem)]">
+                    <ul className="flex flex-col gap-1">
                       <li>
                         <Link
-                          href="/app/perfil"
+                          href={profileHref}
                           className="block rounded-md px-2 py-1.5 text-sm hover:bg-muted"
                         >
-                          Ver perfil
+                          Perfil
                         </Link>
                       </li>
                       <li>
