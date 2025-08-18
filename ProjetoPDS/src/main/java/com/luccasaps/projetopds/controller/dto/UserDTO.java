@@ -1,8 +1,10 @@
 package com.luccasaps.projetopds.controller.dto;
 
 import jakarta.validation.constraints.*;
+import org.hibernate.validator.constraints.UniqueElements;
 
 import java.time.LocalDate;
+import java.util.List;
 
 public record UserDTO(
         @NotBlank(message = "campo Obrigatorio")
@@ -25,7 +27,11 @@ public record UserDTO(
         String password,
 
         @NotBlank(message = "campo Obrigatorio")
-        String phone
+        String phone,
+
+        @NotEmpty
+        @UniqueElements(message = "A lista não pode conter modalidades duplicadas.")
+        List<String> modalidadesNomes
 
 
         ) {
