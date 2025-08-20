@@ -11,6 +11,9 @@ public record UserDTO(
         @Size(min = 2, max= 100, message = "campo fora do tamanho permitido")
         String name,
 
+        @NotBlank(message = "O gênero não pode ser vazio")
+        String genero,
+
         @NotBlank(message = "campo Obrigatorio")
         @Size(max= 50, min = 2, message = "campo fora do tamanho permitido")
         String userName,
