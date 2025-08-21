@@ -46,4 +46,8 @@ public class ModalidadeService {
         // 5. Salva o usuário. O JPA/Hibernate se encarregará de atualizar a tabela de junção 'user_modalidade'.
         userRepository.save(user);
     }
+
+    public List<Modalidade> findAll(){
+        return modalidadeRepository.findAll();
+    }
 }
