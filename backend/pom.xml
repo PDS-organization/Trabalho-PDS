@@ -9,7 +9,7 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.LuccasAps</groupId>
-    <artifactId>ProjetoPDS</artifactId>
+    <artifactId>backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>ProjetoPDS</name>
     <description>ProjetoPDS</description>
