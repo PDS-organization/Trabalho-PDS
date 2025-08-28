@@ -13,6 +13,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
+
 @Configuration
 @EnableWebSecurity
 public class SecurityConfiguration{
@@ -20,6 +26,7 @@ public class SecurityConfiguration{
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                .cors(cors -> {})
                 // Inicia a configuração das regras de autorização para as requisições HTTP
                 .authorizeHttpRequests(authorize -> authorize
                         // Permite o acesso irrestrito a todas as requisições para o H2 Console
@@ -42,6 +49,32 @@ public class SecurityConfiguration{
 
         // Retorna o objeto HttpSecurity configurado para ser usado pelo Spring Security
         return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration cfg = new CorsConfiguration();
+
+        // Em dev, liste explicitamente as origens do front:
+        cfg.setAllowedOrigins(List.of(
+                "http://localhost:3000",
+                "http://127.0.0.1:3000"
+        ));
+        // Se preferir padrão por host (cuidado em prod):
+        // cfg.setAllowedOriginPatterns(List.of("http://localhost:*"));
+
+        cfg.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
+        cfg.setAllowedHeaders(List.of("*"));
+        // Se for usar cookies/Authorization:
+        cfg.setAllowCredentials(true);
+
+        // Se quiser ler cabeçalhos como Location no cliente:
+        cfg.setExposedHeaders(List.of("Location"));
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // Aplica para todas as rotas
+        source.registerCorsConfiguration("/**", cfg);
+        return source;
     }
 
     @Bean

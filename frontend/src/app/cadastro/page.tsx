@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -12,9 +12,19 @@ import StepHeader from "@/components/step-header";
 import { SPORTS, SPORT_IDS, type SportId } from "@/data/sports";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { ChevronDownIcon, Check, X, Loader2 } from "lucide-react";
+import { ChevronDownIcon } from "lucide-react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+
+const GENDER_MAP = {
+  masculino: "masculino",
+  feminino: "feminino",
+  outro: "outro",
+  nao_informar: "nao_informar",
+} as const;
+
+
 
 const USERNAME_RE = /^(?=(?:.*[a-z]){5,})[a-z0-9_]{5,20}$/;
 
@@ -29,16 +39,15 @@ export function normalizeUsername(s: string) {
 const step1Schema = z.object({
   name: z.string().min(2, "Digite seu nome completo"),
   email: z.string().email("E-mail inválido"),
-  password: z
-    .string()
+  password: z.string()
     .min(8, "Mínimo de 8 caracteres")
     .regex(/[A-Z]/, "Inclua ao menos 1 letra maiúscula")
     .regex(/[a-z]/, "Inclua ao menos 1 letra minúscula")
     .regex(/[0-9]/, "Inclua ao menos 1 número"),
-  username: z
-    .string()
+  username: z.string()
     .transform((v) => normalizeUsername(v))
     .refine((v) => USERNAME_RE.test(v), "Use 5-20 caracteres"),
+  phone: z.string().min(10, "Informe seu telefone"),
 });
 
 const cepRegex = /^\d{5}-?\d{3}$/;
@@ -88,7 +97,6 @@ function formatBR(s: string | undefined) {
 export default function CadastroPage() {
   const router = useRouter();
   const [birthOpen, setBirthOpen] = useState(false);
-  const [uStatus, setUStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid" | "reserved">("idle");
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
   const form = useForm<FormValues>({
@@ -100,6 +108,7 @@ export default function CadastroPage() {
       email: "",
       password: "",
       birthdate: "",
+      phone: "",
       gender: "nao_informar",
       cep: "",
       uf: "",
@@ -108,38 +117,7 @@ export default function CadastroPage() {
     },
   });
 
-  useEffect(() => {
-    const v = form.getValues("username");
-    if (!v) {
-      setUStatus("idle");
-      return;
-    }
-    const value = normalizeUsername(v);
-    form.setValue("username", value, { shouldValidate: true, shouldDirty: true });
-    if (!USERNAME_RE.test(value)) {
-      setUStatus("invalid");
-      return;
-    }
-    setUStatus("checking");
-    const ctrl = new AbortController();
-    const id = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/fake/username/available?u=${encodeURIComponent(value)}`, { signal: ctrl.signal });
-        const j = await res.json();
-        if (!res.ok) {
-          setUStatus("invalid");
-          return;
-        }
-        setUStatus(j.available ? "available" : j.reason === "reserved" ? "reserved" : "taken");
-      } catch {
-        setUStatus("invalid");
-      }
-    }, 300);
-    return () => {
-      clearTimeout(id);
-      ctrl.abort();
-    };
-  }, [form.watch("username")]);
+
 
   const isStep1Valid = useMemo(() => {
     const v = step1Schema.safeParse({
@@ -147,9 +125,10 @@ export default function CadastroPage() {
       email: form.getValues("email"),
       username: form.getValues("username"),
       password: form.getValues("password"),
+      phone: form.getValues("phone"),
     });
     return v.success;
-  }, [form.watch("name"), form.watch("email"), form.watch("username"), form.watch("password")]);
+  }, [form.watch("name"), form.watch("email"), form.watch("username"), form.watch("password"), form.watch("phone"),]);
 
   const isStep2Valid = useMemo(() => {
     const v = step2Schema.safeParse({
@@ -181,22 +160,42 @@ export default function CadastroPage() {
 
   async function onSubmit(values: FormValues) {
     try {
-      const res = await fetch("/api/fake/signup", {
+      const dto = {
+        name: values.name,
+        genero: values.gender,
+        userName: values.username,            // note o N maiúsculo (igual ao seu Java)
+        email: values.email,
+        dataNascimento: values.birthdate,     // "YYYY-MM-DD"
+        password: values.password,
+        phone: values.phone,
+        cep: values.cep.replace(/\D/g, ""),   // só dígitos
+        uf: values.uf.toUpperCase(),
+        street: values.street,
+        modalidadesNomes: values.sports
+      };
+
+      const res = await fetch(`${API}/users`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify(dto),
       });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        toast.error("Falha ao salvar", { description: data?.message ?? "Tente novamente." });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 409 || data?.code === "USERNAME_TAKEN") {
+        form.setError("username", { message: "Este username já está em uso" });
+        setStep(1);
         return;
       }
-      toast.success("Cadastro salvo localmente! (fake backend)");
-      router.push("/");
-    } catch {
-      toast.error("Erro inesperado", { description: "Verifique a conexão." });
+      if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+
+      toast.success("Conta criada!");
+      router.push("/login");
+    } catch (err: any) {
+      toast.error("Falha no cadastro", { description: err.message ?? "Tente novamente." });
     }
   }
+
 
   return (
     <main className="min-h-screen p-4 flex items-start justify-center">
@@ -255,18 +254,13 @@ export default function CadastroPage() {
                       <FormControl>
                         <div className="relative">
                           <Input placeholder="seu_username" {...field} onChange={(e) => field.onChange(normalizeUsername(e.target.value))} />
-                          <span className="absolute inset-y-0 right-2 flex items-center">
-                            {uStatus === "checking" && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                            {uStatus === "available" && <Check className="h-4 w-4 text-emerald-500" />}
-                            {(uStatus === "taken" || uStatus === "invalid" || uStatus === "reserved") && <X className="h-4 w-4 text-rose-500" />}
-                          </span>
+                          {/* <span className="absolute inset-y-0 right-2 flex items-center">
+                            feedback
+                          </span> */}
                         </div>
                       </FormControl>
                       <div className="min-h-5">
-                        {uStatus === "available" && <p className="text-xs text-emerald-600">Disponível</p>}
-                        {uStatus === "taken" && <p className="text-xs text-rose-600">Já está em uso</p>}
-                        {uStatus === "reserved" && <p className="text-xs text-rose-600">Nome reservado</p>}
-                        {uStatus === "invalid" && <p className="text-xs text-amber-600">Inválido</p>}
+                        <p className="text-xs text-muted-foreground">A disponibilidade será verificada ao finalizar o cadastro.</p>
                       </div>
                       <FormMessage />
                     </FormItem>
@@ -286,11 +280,29 @@ export default function CadastroPage() {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Telefone</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="tel"
+                          placeholder="(34) 98765-4321"
+                          inputMode="tel"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <div className="flex gap-2">
                   <Button type="button" variant="secondary" className="flex-1" onClick={() => router.push("/")}>
                     Voltar
                   </Button>
-                  <Button type="button" className="flex-1" onClick={() => setStep(2)} disabled={!isStep1Valid || !(uStatus === "available")}>
+                  <Button type="button" className="flex-1" onClick={() => setStep(2)} disabled={!isStep1Valid}>
                     Próximo
                   </Button>
                 </div>
