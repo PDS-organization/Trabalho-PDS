@@ -31,7 +31,7 @@ public class User {
     @Column(name = "genero", length = 20)
     private Genero genero;
 
-    @Column(nullable = false)
+    @Column(name = "user_name", nullable = false, unique = true)
     private String userName;
 
     @Column(nullable = false, unique = true)
@@ -45,6 +45,15 @@ public class User {
 
     @Column(nullable = false)
     private String phone;
+
+    @Column(length = 9, nullable = false)
+    private String cep;
+
+    @Column(length = 2, nullable = false)
+    private String uf;
+
+    @Column(length = 120, nullable = false)
+    private String street;
 
     @ManyToMany(fetch = FetchType.LAZY, cascade = { CascadeType.PERSIST, CascadeType.MERGE })
     @JoinTable(
