@@ -82,10 +82,10 @@ export default function Navbar() {
                 </NavigationMenuItem>
 
                 <NavigationMenuItem>
-                  <NavigationMenuLink asChild active={isActive("/app/atividades/nova")}>
+                  <NavigationMenuLink asChild active={isActive("/app/criar")}>
                     <Link
-                      href="/app/atividades/nova"
-                      className={`px-3 py-2 rounded-md text-sm transition-colors ${isActive("/app/atividades/nova")
+                      href="/app/criar"
+                      className={`px-3 py-2 rounded-md text-sm transition-colors ${isActive("/app/criar")
                         ? "bg-amber-100 text-amber-900"
                         : "hover:bg-muted"
                         }`}

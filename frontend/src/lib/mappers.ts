@@ -1,4 +1,4 @@
-import { SPORTS, type SportId } from "@/data/sports";
+import { SPORTS, type SportId } from "../../data/sports";
 
 export type SignupPayloadUI = {
   name: string;

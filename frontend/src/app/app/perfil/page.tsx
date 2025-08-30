@@ -6,7 +6,7 @@ import fs from "node:fs/promises";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { SPORTS, type SportId } from "@/data/sports";
+import { SPORTS, type SportId } from "../../../../data/sports";
 
 export const runtime = "nodejs"; // vamos ler arquivo com fs
 

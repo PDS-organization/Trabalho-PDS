@@ -127,3 +127,8 @@
 @utility app-container {
   @apply mx-auto max-w-screen-md px-3 sm:px-4 md:px-6;
 }
+
+.no-time-picker::-webkit-calendar-picker-indicator {
+  display: none;
+  -webkit-appearance: none;
+}

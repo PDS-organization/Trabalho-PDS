@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import StepHeader from "@/components/step-header";
-import { SPORTS, SPORT_IDS, type SportId } from "@/data/sports";
+import { SPORTS, SPORT_IDS, type SportId } from "../../data/sports";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { ChevronDownIcon } from "lucide-react";
