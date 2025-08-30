@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,6 +24,7 @@ import {
   StickyNote,
   Type as TitleIcon,
   BadgePlus,
+  Loader2,
 } from "lucide-react";
 
 import { SPORTS, SPORT_IDS, type SportId } from "@/data/sports";
@@ -35,8 +36,8 @@ const cepRegex = /^\d{5}-?\d{3}$/;
 const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 const UFS = [
-  "AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT",
-  "PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO",
+  "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT",
+  "PA", "PB", "PE", "PI", "PR", "RJ", "RN", "RO", "RR", "RS", "SC", "SE", "SP", "TO",
 ] as const;
 type UF = typeof UFS[number];
 
@@ -68,11 +69,31 @@ function formatCEP(raw: string) {
   return digits.replace(/^(\d{5})(\d{0,3}).*/, (_, a, b) => (b ? `${a}-${b}` : a));
 }
 
+// Função para consultar ViaCEP
+async function fetchViaCEP(cep: string): Promise<{ logradouro: string; uf: UF } | null> {
+  try {
+    const cleanCEP = cep.replace(/\D/g, "");
+    if (cleanCEP.length !== 8) return null;
+
+    const response = await fetch(`https://viacep.com.br/ws/${cleanCEP}/json/`);
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    if (data.erro) return null;
+
+    return {
+      logradouro: data.logradouro || "",
+      uf: data.uf as UF,
+    };
+  } catch {
+    return null;
+  }
+}
+
 // -------------------------------------------------------------
 // Schema (corrigido)
 // -------------------------------------------------------------
 const schema = z.object({
-  // Usa custom validator para não depender de tuple `as const`
   sport: z.custom<SportId>(
     (v): v is SportId =>
       typeof v === "string" && (SPORT_IDS as readonly string[]).includes(v),
@@ -85,9 +106,7 @@ const schema = z.object({
   street: z.string().trim().max(120, "Máximo 120 caracteres").optional().or(z.literal("")),
   title: z.string().trim().max(60, "Máximo 60 caracteres").optional().or(z.literal("")),
   notes: z.string().trim().max(300, "Máximo 300 caracteres").optional().or(z.literal("")),
-  // sem default aqui para não tornar o INPUT opcional no resolver
   status: z.enum(STATUS),
-  // capacity: number|null (null = sem limite)
   capacity: z.preprocess((v) => {
     if (v === null || v === undefined || v === "" || v === "null") return null;
     const n = Number(v);
@@ -131,12 +150,14 @@ export default function CreateActivityForm({
   currentUserId,
   defaultUF = "SP",
   defaultCEP = "",
+  defaultStreet = "",
   onCreate,
 }: {
   className?: string;
   currentUserId: string;
   defaultUF?: UF;
   defaultCEP?: string;
+  defaultStreet?: string;
   onCreate?: (payload: CreateActivityPayload) => Promise<void> | void;
 }) {
   const form = useForm<CreateActivityValues>({
@@ -148,28 +169,56 @@ export default function CreateActivityForm({
       uf: defaultUF,
       date: "",
       time: "",
-      street: "",
+      street: defaultStreet,
       title: "",
       notes: "",
-      capacity: null, // null = sem limite
-      status: "open", // default aqui (não no schema)
+      capacity: null,
+      status: "open",
     },
   });
 
   const [openCal, setOpenCal] = useState(false);
   const [openSports, setOpenSports] = useState(false);
-  const [openUF, setOpenUF] = useState(false);
+  const [isLoadingCEP, setIsLoadingCEP] = useState(false);
 
   const todayYMD = toYMD(new Date());
 
-  // ✅ Corrigido: Substituído useMemo por useCallback
   const getMinTime = useCallback(() => {
     const currentDate = form.getValues("date");
     return currentDate === todayYMD ? nowHHMM() : "00:00";
   }, [todayYMD]);
 
-  // ✅ Corrigido: Usando formState.isValid ao invés de useMemo
   const isFormValid = form.formState.isValid;
+
+  // Debounce para consulta do ViaCEP
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === "cep" && value.cep) {
+        const cleanCEP = value.cep.replace(/\D/g, "");
+        if (cleanCEP.length === 8) {
+          const timeoutId = setTimeout(async () => {
+            setIsLoadingCEP(true);
+            try {
+              const viaCepData = await fetchViaCEP(value.cep);
+              if (viaCepData) {
+                // Atualiza UF e street automaticamente
+                form.setValue("uf", viaCepData.uf, { shouldValidate: true });
+                form.setValue("street", viaCepData.logradouro, { shouldValidate: true });
+              }
+            } catch (error) {
+              console.error("Erro ao consultar ViaCEP:", error);
+            } finally {
+              setIsLoadingCEP(false);
+            }
+          }, 500); // 500ms de debounce
+
+          return () => clearTimeout(timeoutId);
+        }
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [form]);
 
   // UI helper (ícone à esquerda)
   function WithIcon({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
@@ -185,17 +234,14 @@ export default function CreateActivityForm({
     );
   }
 
-  // ✅ Corrigido: Otimizado setSport com useCallback
   const setSport = useCallback((id: SportId) => {
     form.setValue("sport", id, { shouldValidate: true, shouldDirty: true });
   }, [form]);
 
-  // ✅ Para displays que precisam reagir a mudanças, mantemos o watch
   const selectedSport = form.watch("sport") as SportId | undefined;
   const selectedUF = form.watch("uf") as UF;
   const capacityIsNoLimit = form.watch("capacity") === null;
 
-  // ✅ Corrigido: toggleNoLimit com useCallback
   const toggleNoLimit = useCallback((checked: boolean | "indeterminate") => {
     const v = !!checked;
     form.setValue("capacity", v ? null : (1 as unknown as number), {
@@ -230,8 +276,6 @@ export default function CreateActivityForm({
     if (onCreate) {
       await onCreate(payload);
     } else {
-      // Por enquanto, apenas demonstração
-      // eslint-disable-next-line no-console
       console.log("CreateActivity payload =>", payload);
     }
 
@@ -241,7 +285,7 @@ export default function CreateActivityForm({
       uf: defaultUF,
       date: "",
       time: "",
-      street: "",
+      street: defaultStreet,
       title: "",
       notes: "",
       capacity: null,
@@ -273,14 +317,14 @@ export default function CreateActivityForm({
                         >
                           {selectedSport
                             ? (() => {
-                                const s = SPORTS.find((x) => x.id === selectedSport)!;
-                                return (
-                                  <span className="inline-flex items-center gap-2">
-                                    <s.Icon className="h-4 w-4" />
-                                    {s.label}
-                                  </span>
-                                );
-                              })()
+                              const s = SPORTS.find((x) => x.id === selectedSport)!;
+                              return (
+                                <span className="inline-flex items-center gap-2">
+                                  <s.Icon className="h-4 w-4" />
+                                  {s.label}
+                                </span>
+                              );
+                            })()
                             : "Selecione o esporte"}
                           <ChevronDownIcon className="h-4 w-4 opacity-70" />
                         </Button>
@@ -339,12 +383,41 @@ export default function CreateActivityForm({
             <FormItem>
               <FormControl>
                 <WithIcon icon={<MapPin className="h-5 w-5 text-muted-foreground" />}>
+
                   <Input
                     inputMode="numeric"
                     placeholder="CEP (00000-000)"
                     className="h-12 text-base"
                     {...field}
                     onChange={(e) => field.onChange(formatCEP(e.target.value))}
+                  />
+                  {isLoadingCEP && (
+                    <div className="absolute inset-y-0 right-3 flex items-center">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+
+                </WithIcon>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* UF - DISABLED */}
+        <FormField
+          control={form.control}
+          name="uf"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <WithIcon icon={<MapPin className="h-5 w-5 text-muted-foreground" />}>
+                  <Input
+                    placeholder="Estado (UF)"
+                    className="h-12 text-base bg-muted"
+                    disabled
+                    value={selectedUF ? `UF: ${selectedUF}` : ""}
+                    readOnly
                   />
                 </WithIcon>
               </FormControl>
@@ -353,52 +426,20 @@ export default function CreateActivityForm({
           )}
         />
 
-        {/* UF */}
         <FormField
           control={form.control}
-          name="uf"
+          name="street"
           render={({ field }) => (
             <FormItem>
               <FormControl>
-                <Popover open={openUF} onOpenChange={setOpenUF}>
-                  <PopoverTrigger asChild>
-                    <div>
-                      <WithIcon icon={<MapPin className="h-5 w-5 text-muted-foreground" />}>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="h-12 w-full justify-between text-base"
-                        >
-                          {selectedUF ? `UF: ${selectedUF}` : "Selecione o estado (UF)"}
-                          <ChevronDownIcon className="h-4 w-4 opacity-70" />
-                        </Button>
-                      </WithIcon>
-                    </div>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[min(24rem,calc(100vw-2rem))] p-2">
-                    <div className="grid grid-cols-4 gap-2">
-                      {UFS.map((uf) => {
-                        const checked = field.value === uf;
-                        return (
-                          <button
-                            key={uf}
-                            type="button"
-                            onClick={() => {
-                              field.onChange(uf);
-                              setOpenUF(false);
-                            }}
-                            className={[
-                              "rounded-md border px-2 py-1 text-sm",
-                              checked ? "border-amber-500 bg-amber-50" : "hover:bg-muted",
-                            ].join(" ")}
-                          >
-                            {uf}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                <WithIcon icon={<ListChecks className="h-5 w-5 text-muted-foreground" />}>
+                  <Input
+                    placeholder="Rua / complemento (automático via CEP)"
+                    className="h-12 text-base bg-muted"
+                    disabled
+                    {...field}
+                  />
+                </WithIcon>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -474,25 +515,8 @@ export default function CreateActivityForm({
           )}
         />
 
-        {/* STREET (opcional) */}
-        <FormField
-          control={form.control}
-          name="street"
-          render={({ field }) => (
-            <FormItem>
-              <FormControl>
-                <WithIcon icon={<ListChecks className="h-5 w-5 text-muted-foreground" />}>
-                  <Input
-                    placeholder="Rua / complemento (opcional)"
-                    className="h-12 text-base"
-                    {...field}
-                  />
-                </WithIcon>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+
+
 
         {/* TITLE (opcional) */}
         <FormField
@@ -522,9 +546,9 @@ export default function CreateActivityForm({
             <FormItem>
               <FormControl>
                 <WithIcon icon={<StickyNote className="h-5 w-5 text-muted-foreground" />}>
-                  <Input
+                  <Textarea
                     placeholder="Observações (ex.: 'Trazer colete')"
-                    className="h-12 text-base"
+                    className="min-h-[100px] text-base"
                     {...field}
                   />
                 </WithIcon>
@@ -599,8 +623,8 @@ export default function CreateActivityForm({
                         opt === "open"
                           ? "Inscrições abertas"
                           : opt === "closed"
-                          ? "Fechada para novas entradas"
-                          : "Cancelada"
+                            ? "Fechada para novas entradas"
+                            : "Cancelada"
                       }
                     >
                       {opt}
@@ -615,9 +639,9 @@ export default function CreateActivityForm({
 
         {/* Submit */}
         <div className="flex justify-end">
-          <Button 
-            type="submit" 
-            className="h-12 px-6 text-base" 
+          <Button
+            type="submit"
+            className="h-12 px-6 text-base"
             disabled={!isFormValid || form.formState.isSubmitting}
           >
             Criar atividade

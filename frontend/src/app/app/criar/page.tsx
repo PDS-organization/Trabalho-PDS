@@ -15,6 +15,7 @@ export default async function CriarAtividadePage() {
   const user = await findUserById(session.sub);
 
   const cep = user?.cep ?? "00000-000";
+  const street = user?.street ?? "Rua / complemento (automático via CEP)"
   // TypeScript pode reclamar porque defaultUF é um union de UFs; esse cast resolve:
   const uf = (user?.uf ?? "SP") as Parameters<typeof CreateActivityForm>[0]["defaultUF"];
   return (
@@ -30,7 +31,8 @@ export default async function CriarAtividadePage() {
         <CreateActivityForm
           currentUserId={session.sub}  // id do usuário logado
           defaultUF={uf}               // UF pré-carregada da sessão (fallback SP)
-          defaultCEP={cep}             // CEP pré-carregado da sessão
+          defaultCEP={cep}
+          defaultStreet={street}
           // sem onCreate => o componente já faz console.log/reset (simples)
         />
       </div>
