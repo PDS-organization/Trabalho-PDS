@@ -91,6 +91,7 @@ export default function SearchPartnersForm({
 
   const [openCal, setOpenCal] = useState(false);
   const [openSports, setOpenSports] = useState(false);
+  const [openTip, setOpenTip] = useState(false);
 
   const todayYMD = toYMD(new Date());
 
@@ -288,54 +289,60 @@ export default function SearchPartnersForm({
           name="time"
           render={({ field }) => (
             <FormItem>
-              <div className="space-y-2">
-                <FormLabel className="text-sm font-medium flex items-center gap-2">
-                  Horário de início
-                  <div className="group relative">
-                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
-                    <div className="invisible group-hover:visible absolute left-0 top-5 z-10 w-64 p-2 bg-popover border rounded-md shadow-md text-xs">
-                      Buscaremos atividades <strong>a partir</strong> deste horário. 
-                      Ex: se escolher 18:00, verá atividades às 18:00, 18:30, 19:00, etc.
-                    </div>
-                  </div>
-                </FormLabel>
-                <FormControl>
-                  <WithIcon icon={<Clock className="h-5 w-5 text-muted-foreground" />}>
-                    <Input
-                      type="time"
-                      step={60}
-                      min={getMinTime()}
-                      placeholder="A partir de que horas?"
-                      className="h-12 text-base no-time-picker"
-                      onClick={(e) => (e.currentTarget as HTMLInputElement).showPicker?.()}
-                      onFocus={(e) => (e.currentTarget as HTMLInputElement).showPicker?.()}
-                      {...field}
-                    />
-                  </WithIcon>
-                </FormControl>
-                <div className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  Mostraremos atividades a partir das{" "}
-                  <span className="font-medium">
-                    {field.value || "XX:XX"}
-                  </span>
-                </div>
+              {/* Label visível só no mobile; no desktop fica sr-only para reduzir altura */}
+              <FormLabel className="text-sm font-medium flex items-center gap-2 md:sr-only">
+                Horário de início
+                {/* Tooltip só no mobile (desktop não mostra) */}
+                <Popover open={openTip} onOpenChange={setOpenTip}>
+                  <PopoverTrigger asChild>
+                    <button type="button" className="inline-flex items-center md:hidden">
+                      <Info className="h-3 w-3 text-muted-foreground" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent side="bottom" align="start" className="w-64 p-2 md:hidden">
+                    Buscaremos atividades <strong>a partir</strong> deste horário.
+                    Ex: se escolher 18:00, verá atividades às 18:00, 18:30, 19:00, etc.
+                  </PopoverContent>
+                </Popover>
+              </FormLabel>
+
+              <FormControl>
+                <WithIcon icon={<Clock className="h-5 w-5 text-muted-foreground" />}>
+                  <Input
+                    type="time"
+                    step={60}
+                    min={getMinTime()}
+                    placeholder="A partir de que horas?"
+                    aria-label="Horário de início"  // A11y já que escondemos o label no desktop
+                    className="h-12 text-base"
+                    onClick={(e) => (e.currentTarget as HTMLInputElement).showPicker?.()}
+                    onFocus={(e) => (e.currentTarget as HTMLInputElement).showPicker?.()}
+                    {...field}
+                  />
+                </WithIcon>
+              </FormControl>
+
+              {/* Ajuda embaixo: mostra só no mobile para não “esticar” a linha no desktop */}
+              <div className="text-xs text-muted-foreground flex items-center gap-1 md:hidden">
+                <Clock className="h-3 w-3" />
+                Mostraremos atividades a partir das{" "}
+                <span className="font-medium">{field.value || "XX:XX"}</span>
               </div>
+
               <FormMessage />
             </FormItem>
           )}
         />
 
         {/* Botão */}
-        <div className="flex justify-end">
-          <Button 
-            type="submit" 
-            className="h-12 px-6 text-base" 
+        
+          <Button
+            type="submit"
+            className="h-12 px-6 text-base"
             disabled={!isFormValid || form.formState.isSubmitting}
           >
             Buscar atividades
           </Button>
-        </div>
       </form>
     </Form>
   );

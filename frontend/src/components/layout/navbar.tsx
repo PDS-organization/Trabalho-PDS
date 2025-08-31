@@ -13,9 +13,9 @@ import {
   NavigationMenuViewport,
 } from "@/components/ui/navigation-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { Search, PlusCircle } from "lucide-react";
 import BrandLogo from "@/components/brand/logo";
-import { ChevronDown } from "lucide-react";
 
 function Logo({ className = "h-6 w-auto" }: { className?: string }) {
   return <BrandLogo className={className} />;
@@ -23,29 +23,82 @@ function Logo({ className = "h-6 w-auto" }: { className?: string }) {
 
 function useMe() {
   const [me, setMe] = useState<{ name?: string; email?: string; avatarUrl?: string; username?: string } | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
-    fetch("/api/fake/me").then(async (r) => {
-      if (!mounted) return;
-      if (!r.ok) return setMe(null);
-      const j = await r.json();
-      setMe(j.user ?? null);
-    });
+    fetch("/api/fake/me")
+      .then(async (r) => {
+        if (!mounted) return;
+        if (!r.ok) return setMe(null);
+        const j = await r.json();
+        setMe(j.user ?? null);
+      })
+      .catch(() => {
+        if (mounted) setMe(null);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
     return () => { mounted = false; };
   }, []);
-  return me;
+
+  return { user: me, loading };
 }
 
 export default function Navbar() {
   const pathname = usePathname();
-  const me = useMe();
+  const { user: me, loading } = useMe();
   const profileHref = me?.username ? `/app/u/${me.username}` : "/app";
-
 
   const isActive = (href: string) => pathname?.startsWith(href);
 
+  // Loading state
+  if (loading) {
+    return (
+      <header className="fixed inset-x-0 top-0 z-[100] border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="app-container">
+          <div className="flex h-14 items-center">
+            <Link href="/" className="inline-flex items-center gap-2">
+              <Logo />
+            </Link>
+          </div>
+        </div>
+      </header>
+    );
+  }
 
+  // Navbar para usuário DESLOGADO
+  if (!me) {
+    return (
+      <header className="fixed inset-x-0 top-0 z-[100] border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="app-container">
+          <div className="flex h-14 items-center justify-between">
+            {/* Logo */}
+            <Link href="/" className="inline-flex items-center gap-2">
+              <Logo />
+            </Link>
+
+            {/* Botões de autenticação */}
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/login">
+                  Entrar
+                </Link>
+              </Button>
+              <Button variant="default" size="sm" asChild>
+                <Link href="/register">
+                  Cadastrar-se
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+    );
+  }
+
+  // Navbar para usuário LOGADO (funcionalidade original)
   return (
     <header className="fixed inset-x-0 top-0 z-[100] border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 overflow-x-clip">
       <div className="app-container">
@@ -103,8 +156,8 @@ export default function Navbar() {
               className={`p-2 rounded-md transition-colors ${isActive("/app/buscar") ? "bg-amber-100 text-amber-900" : "hover:bg-muted"}`}>
               <Search className="h-5 w-5" />
             </Link>
-            <Link href="/app/atividades/nova" aria-label="Criar atividade"
-              className={`p-2 rounded-md transition-colors ${isActive("/app/atividades/nova") ? "bg-amber-100 text-amber-900" : "hover:bg-muted"}`}>
+            <Link href="/app/criar" aria-label="Criar atividade"
+              className={`p-2 rounded-md transition-colors ${isActive("/app/criar") ? "bg-amber-100 text-amber-900" : "hover:bg-muted"}`}>
               <PlusCircle className="h-5 w-5" />
             </Link>
           </nav>
@@ -142,10 +195,26 @@ export default function Navbar() {
                         </Link>
                       </li>
                       <li>
+                        <Link
+                          href="/app/minhas-atividades"
+                          className="block rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+                        >
+                          Minhas atividades
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          href="/app/matches"
+                          className="block rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+                        >
+                          Matches pendentes
+                        </Link>
+                      </li>
+                      <li className="border-t pt-1 mt-1">
                         <form action="/api/fake/logout" method="POST">
                           <button
                             type="submit"
-                            className="w-full text-left cursor-pointer rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+                            className="w-full text-left cursor-pointer rounded-md px-2 py-1.5 text-sm hover:bg-muted text-muted-foreground"
                           >
                             Sair
                           </button>
