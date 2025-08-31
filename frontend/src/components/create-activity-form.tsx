@@ -193,7 +193,7 @@ export default function CreateActivityForm({
   // Debounce para consulta do ViaCEP
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
-      if (name === "cep" && value.cep) {
+      if (name === "cep" && value.cep && typeof value.cep === "string") {
         const cleanCEP = value.cep.replace(/\D/g, "");
         if (cleanCEP.length === 8) {
           const timeoutId = setTimeout(async () => {
@@ -201,16 +201,14 @@ export default function CreateActivityForm({
             try {
               const viaCepData = await fetchViaCEP(value.cep);
               if (viaCepData) {
-                // Atualiza UF e street automaticamente
                 form.setValue("uf", viaCepData.uf, { shouldValidate: true });
-                form.setValue("street", viaCepData.logradouro, { shouldValidate: true });
               }
             } catch (error) {
               console.error("Erro ao consultar ViaCEP:", error);
             } finally {
               setIsLoadingCEP(false);
             }
-          }, 500); // 500ms de debounce
+          }, 500);
 
           return () => clearTimeout(timeoutId);
         }
@@ -272,6 +270,7 @@ export default function CreateActivityForm({
       ],
       matches: [],
     };
+
 
     if (onCreate) {
       await onCreate(payload);

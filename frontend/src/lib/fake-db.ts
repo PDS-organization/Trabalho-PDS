@@ -21,15 +21,15 @@ export async function readJsonl<T = any>(filePath: string): Promise<T[]> {
   }
 }
 
+
 export async function appendJsonl(filePath: string, record: Json) {
   await ensureDir(filePath);
   await fs.appendFile(filePath, JSON.stringify(record) + "\n", "utf8");
 }
 
-export async function writeJsonl(filePath: string, records: Json[]) {
-  await ensureDir(filePath);
-  const lines = records.map((r) => JSON.stringify(r)).join("\n") + "\n";
-  await fs.writeFile(filePath, lines, "utf8");
+export async function writeJsonl<T>(filePath: string, data: T[]): Promise<void> {
+  const jsonlContent = data.map(item => JSON.stringify(item)).join('\n');
+  await fs.writeFile(filePath, jsonlContent, 'utf8');
 }
 
 export function cepPrefix(cep: string) {

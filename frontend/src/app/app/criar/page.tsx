@@ -14,7 +14,9 @@ export default async function CriarAtividadePage() {
 
   const user = await findUserById(session.sub);
 
+  
   const cep = user?.cep ?? "00000-000";
+
   const street = user?.street ?? "Rua / complemento (automático via CEP)"
   // TypeScript pode reclamar porque defaultUF é um union de UFs; esse cast resolve:
   const uf = (user?.uf ?? "SP") as Parameters<typeof CreateActivityForm>[0]["defaultUF"];

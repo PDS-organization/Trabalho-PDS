@@ -8,12 +8,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Form, FormControl, FormField, FormItem, FormMessage,
+  Form, FormControl, FormField, FormItem, FormMessage, FormLabel,
 } from "@/components/ui/form";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, MapPin, Calendar as CalIcon, Clock, ChevronDownIcon } from "lucide-react";
+import { Search, MapPin, Calendar as CalIcon, Clock, ChevronDownIcon, Info } from "lucide-react";
 import { SPORTS, SPORT_IDS, type SportId } from "@/data/sports";
 
 const cepRegex = /^\d{5}-?\d{3}$/;
@@ -94,13 +94,11 @@ export default function SearchPartnersForm({
 
   const todayYMD = toYMD(new Date());
 
-  // ✅ Corrigido: Removido useMemo que causava re-renders
   const getMinTime = useCallback(() => {
     const currentDate = form.getValues("date");
     return currentDate === todayYMD ? nowHHMM() : "00:00";
   }, [todayYMD]);
 
-  // ✅ Corrigido: Usando formState.isValid ao invés de useMemo
   const isFormValid = form.formState.isValid;
 
   async function submit(values: Values) {
@@ -132,7 +130,6 @@ export default function SearchPartnersForm({
     );
   }
 
-  // ✅ Corrigido: Usando getValues ao invés de watch para evitar re-renders
   const toggleSport = useCallback((id: SportId) => {
     const currentSports = form.getValues("sports");
     const cur = new Set(currentSports);
@@ -141,7 +138,6 @@ export default function SearchPartnersForm({
     form.setValue("sports", Array.from(cur), { shouldValidate: true, shouldDirty: true });
   }, [form]);
 
-  // ✅ Para o display dos esportes selecionados, ainda precisamos do watch
   const selectedSports = form.watch("sports") as SportId[];
 
   return (
@@ -286,25 +282,45 @@ export default function SearchPartnersForm({
           )}
         />
 
-        {/* Horário */}
+        {/* Horário - ATUALIZADO com explicação do range */}
         <FormField
           control={form.control}
           name="time"
           render={({ field }) => (
             <FormItem>
-              <FormControl>
-                <WithIcon icon={<Clock className="h-5 w-5 text-muted-foreground" />}>
-                  <Input
-                    type="time"
-                    step={60}
-                    min={getMinTime()}
-                    className="h-12 text-base no-time-picker"
-                    onClick={(e) => (e.currentTarget as HTMLInputElement).showPicker?.()}
-                    onFocus={(e) => (e.currentTarget as HTMLInputElement).showPicker?.()}
-                    {...field}
-                  />
-                </WithIcon>
-              </FormControl>
+              <div className="space-y-2">
+                <FormLabel className="text-sm font-medium flex items-center gap-2">
+                  Horário de início
+                  <div className="group relative">
+                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                    <div className="invisible group-hover:visible absolute left-0 top-5 z-10 w-64 p-2 bg-popover border rounded-md shadow-md text-xs">
+                      Buscaremos atividades <strong>a partir</strong> deste horário. 
+                      Ex: se escolher 18:00, verá atividades às 18:00, 18:30, 19:00, etc.
+                    </div>
+                  </div>
+                </FormLabel>
+                <FormControl>
+                  <WithIcon icon={<Clock className="h-5 w-5 text-muted-foreground" />}>
+                    <Input
+                      type="time"
+                      step={60}
+                      min={getMinTime()}
+                      placeholder="A partir de que horas?"
+                      className="h-12 text-base no-time-picker"
+                      onClick={(e) => (e.currentTarget as HTMLInputElement).showPicker?.()}
+                      onFocus={(e) => (e.currentTarget as HTMLInputElement).showPicker?.()}
+                      {...field}
+                    />
+                  </WithIcon>
+                </FormControl>
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  Mostraremos atividades a partir das{" "}
+                  <span className="font-medium">
+                    {field.value || "XX:XX"}
+                  </span>
+                </div>
+              </div>
               <FormMessage />
             </FormItem>
           )}
@@ -317,7 +333,7 @@ export default function SearchPartnersForm({
             className="h-12 px-6 text-base" 
             disabled={!isFormValid || form.formState.isSubmitting}
           >
-            Buscar parceiros
+            Buscar atividades
           </Button>
         </div>
       </form>
