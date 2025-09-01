@@ -13,5 +13,4 @@ public class ProjetoPdsApplication {
         SpringApplication.run(ProjetoPdsApplication.class, args);
         System.out.println("Projeto PDS Iniciado!");
     }
-
 }
