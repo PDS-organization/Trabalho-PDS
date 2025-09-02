@@ -8,7 +8,8 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface UserMapper {
 
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "dataCadastro", ignore = true)
+    @Mapping(target = "modalidades", ignore = true)
     User toEntity(UserDTO userDTO);
-
-    UserDTO toDTO(User user);
 }

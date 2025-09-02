@@ -5,6 +5,8 @@ export type SignupPayload = {
   acceptTerms: boolean;
 };
 
+
+
 // Troque a URL quando o backend Java estiver pronto
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
@@ -31,4 +33,24 @@ export async function signup(payload: SignupPayload): Promise<{ ok: true } | { o
     return { ok: false, message: data?.message ?? "Falha ao cadastrar" };
   }
   return { ok: true };
+}
+
+
+
+// ===================== //
+
+import { cookies } from "next/headers";
+import { verifySession } from "@/lib/jwt";
+
+export type SessionUser = {
+  sub: string;
+  name?: string;
+  username?: string;
+};
+
+export async function getCurrentSession(): Promise<SessionUser | null> {
+  const token = (await cookies()).get("sb:session")?.value ?? null;
+  if (!token) return null;
+  const session = await verifySession<SessionUser>(token);
+  return session ?? null;
 }

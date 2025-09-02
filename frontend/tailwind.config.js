@@ -20,6 +20,9 @@ module.exports = {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['var(--font-lato)', 'system-ui', 'sans-serif'],
+      }
 
     }
   },
