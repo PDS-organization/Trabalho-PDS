@@ -20,8 +20,8 @@ public class UserController implements GenericController {
     private final UserService userService;
     private final UserResponseMapper userResponseMapper;
 
-    @PostMapping
-    public ResponseEntity<UserResponseDTO> save(@RequestBody @Valid UserDTO userDTO){
+    @PostMapping("/register")
+    public ResponseEntity<UserResponseDTO> register(@RequestBody @Valid UserDTO userDTO){
         User user = userService.save(userDTO);
 
         UserResponseDTO userResponse = userResponseMapper.toResponseDTO(user);
