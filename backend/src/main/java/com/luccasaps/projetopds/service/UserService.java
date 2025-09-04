@@ -16,6 +16,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 
+
 @Service
 @RequiredArgsConstructor
 public class UserService{
@@ -34,6 +35,10 @@ public class UserService{
         User user = userMapper.toEntity(userDTO);
 
         user.setPassword(passwordEncoder.encode(user.getPassword()));
+
+        user.setCep(userDTO.cep().replaceAll("\\D", ""));
+        user.setUf(userDTO.uf().toUpperCase(Locale.ROOT));
+        user.setStreet(userDTO.street());
 
         // 3. Processa e associa as modalidades
         List<String> modalidadesNomes = userDTO.modalidadesNomes();

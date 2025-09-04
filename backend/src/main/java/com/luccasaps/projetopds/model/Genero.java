@@ -1,6 +1,5 @@
 package com.luccasaps.projetopds.model;
 
 public enum Genero {
-    MASCULINO,
-    FEMININO
+    masculino, feminino, outro, nao_informar
 }
