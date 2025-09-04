@@ -32,7 +32,7 @@ public class SecurityFilter extends OncePerRequestFilter {
             var subject = tokenService.getSubject(tokenJWT); // O subject é o email
 
             // 1. O repositório agora retorna um objeto 'User'
-            User user = userRepository.findByEmail(subject);
+            User user = userRepository.findByUsername(subject);
 
             if (user != null) {
                 // 2. Mesmo 'user' sendo do tipo User, ele também é um UserDetails.
