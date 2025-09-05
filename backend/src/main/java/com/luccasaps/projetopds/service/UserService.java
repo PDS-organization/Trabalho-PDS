@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 
@@ -28,7 +29,7 @@ public class UserService{
 
     public User save(UserDTO userDTO){
 
-        if(userRepository.findByEmail(userDTO.email()) != null ){
+        if(userRepository.findByEmail(userDTO.email()).isPresent()){
             throw new RuntimeException("Este email já está em uso.");
         }
 

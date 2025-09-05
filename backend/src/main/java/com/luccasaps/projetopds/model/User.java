@@ -14,11 +14,9 @@ import java.util.*;
 
 @Getter
 @Setter
-@EqualsAndHashCode(exclude = "modalidades")
 @Entity
 @Table(name = "usuarios",schema = "public")
 @EntityListeners(AuditingEntityListener.class)
-@ToString(exclude = "modalidades")
 public class User implements UserDetails {
 
     @Id
@@ -34,7 +32,7 @@ public class User implements UserDetails {
     private Genero genero;
 
     @Column(name = "user_name", nullable = false, unique = true)
-    private String userName;
+    private String username;
 
     @Column(nullable = false, unique = true)
     private String email;
@@ -76,7 +74,7 @@ public class User implements UserDetails {
 
     @Override
     public String getUsername() {
-        return this.email;
+        return this.username;
     }
 
     @Override

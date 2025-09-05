@@ -13,15 +13,19 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Configuração de segurança do Spring Security
@@ -53,19 +57,19 @@ public class SecurityConfiguration{
                         // Permite acesso irrestrito ao H2 Console (desenvolvimento)
                         .requestMatchers("/h2-console/**").permitAll()
 
-                        // Permite criação de usuários
-                        .requestMatchers(HttpMethod.POST, "/users/**").permitAll()
-
                         // Endpoints comuns que podem precisar ser públicos
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/error").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/users/register").permitAll()
+                        //.requestMatchers(HttpMethod.POST, "/users/**").permitAll()
 
                         // Documentação da API (Swagger)
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
 
-                        // Para todas as outras requisições - MANTÉM ORIGINAL
-                        .anyRequest().permitAll()
+                        // Para todas as outras requisições, exige que o usuário esteja autenticado
+                        .anyRequest().authenticated()
                 )
 
                 // Configuração de headers de segurança (melhorias sem quebrar funcionalidade)
@@ -75,22 +79,23 @@ public class SecurityConfiguration{
 
 
                         // Adiciona headers de segurança básicos
-                        .contentTypeOptions(HeadersConfigurer.ContentTypeOptionsConfig::and)
+                        .contentTypeOptions(contentTypeOptions -> {})
                         .httpStrictTransportSecurity(hstsConfig -> hstsConfig
                                 .maxAgeInSeconds(31536000)
-                                .includeSubdomains(false) // Menos restritivo para desenvolvimento
+                                .includeSubDomains(false) // Menos restritivo para desenvolvimento
                         )
                 )
-
                 // Configuração CSRF - MANTÉM ORIGINAL (desabilitado)
                 .csrf(AbstractHttpConfigurer::disable)
 
                 // Adiciona configuração CORS básica
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class)
+
 
                 // Configuração de sessão (adiciona controles básicos)
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                         .maximumSessions(5) // Permite até 5 sessões simultâneas
                         .maxSessionsPreventsLogin(false)
                 );
@@ -134,14 +139,14 @@ public class SecurityConfiguration{
 
     @Bean
     public UserDetailsService userDetailsService() {
-        return email -> {
-            // 1. Chama o novo método findByEmail, que retorna 'User' ou 'null'
-            User user = userRepository.findByEmail(email);
+        return username -> {
+            // 1. Chama o novo método findByUsername, que retorna 'User' ou 'null'
+            User user = userRepository.findByUsername(username);
 
             // 2. Verifica se o usuário foi encontrado
             if (user == null) {
                 // 3. Se não foi encontrado, lança a exceção
-                throw new UsernameNotFoundException("Usuário não encontrado com o e-mail: " + email);
+                throw new UsernameNotFoundException("Usuário não encontrado com o username: " + username);
             }
 
             // 4. Se foi encontrado, retorna o objeto User
@@ -152,38 +157,5 @@ public class SecurityConfiguration{
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(10);
-    }
-
-    /**
-     * Configuração CORS permissiva para desenvolvimento
-     * Pode ser restringida posteriormente em produção
-     */
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-
-        // Permite todas as origens em desenvolvimento (pode ser restringido depois)
-        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
-
-        // Permite os métodos HTTP mais comuns
-        configuration.setAllowedMethods(Arrays.asList(
-                HttpMethod.GET.name(),
-                HttpMethod.POST.name(),
-                HttpMethod.PUT.name(),
-                HttpMethod.DELETE.name(),
-                HttpMethod.PATCH.name(),
-                HttpMethod.OPTIONS.name()
-        ));
-
-        // Permite todos os headers
-        configuration.setAllowedHeaders(Arrays.asList("*"));
-
-        // Permite credenciais
-        configuration.setAllowCredentials(true);
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-
-        return source;
     }
 }
