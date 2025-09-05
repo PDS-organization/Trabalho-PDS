@@ -29,7 +29,7 @@ public class UserService{
 
     public User save(UserDTO userDTO){
 
-        if(userRepository.findByEmail(userDTO.email()) != null ){
+        if(userRepository.findByEmail(userDTO.email()).isPresent()){
             throw new RuntimeException("Este email já está em uso.");
         }
 

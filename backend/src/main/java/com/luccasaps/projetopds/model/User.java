@@ -14,11 +14,9 @@ import java.util.*;
 
 @Getter
 @Setter
-@EqualsAndHashCode(exclude = "modalidades")
 @Entity
 @Table(name = "usuarios",schema = "public")
 @EntityListeners(AuditingEntityListener.class)
-@ToString(exclude = "modalidades")
 public class User implements UserDetails {
 
     @Id

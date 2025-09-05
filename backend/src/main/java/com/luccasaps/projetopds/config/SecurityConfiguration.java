@@ -140,13 +140,13 @@ public class SecurityConfiguration{
     @Bean
     public UserDetailsService userDetailsService() {
         return username -> {
-            // 1. Chama o novo método findByEmail, que retorna 'User' ou 'null'
+            // 1. Chama o novo método findByUsername, que retorna 'User' ou 'null'
             User user = userRepository.findByUsername(username);
 
             // 2. Verifica se o usuário foi encontrado
             if (user == null) {
                 // 3. Se não foi encontrado, lança a exceção
-                throw new UsernameNotFoundException("Usuário não encontrado com o e-mail: " + username);
+                throw new UsernameNotFoundException("Usuário não encontrado com o username: " + username);
             }
 
             // 4. Se foi encontrado, retorna o objeto User
