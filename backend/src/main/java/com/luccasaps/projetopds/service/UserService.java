@@ -84,6 +84,6 @@ public class UserService{
             user.setModalidades(new HashSet<>(modalidades));
         }
 
-        return userRepository.save(user);
+        return user;
     }
 }

@@ -1,6 +1,7 @@
 package com.luccasaps.projetopds.service;
 
 import com.luccasaps.projetopds.controller.dto.AtividadeCreateDTO;
+import com.luccasaps.projetopds.controller.dto.AtividadeUpdateDTO;
 import com.luccasaps.projetopds.controller.mappers.AtividadeMapper;
 import com.luccasaps.projetopds.model.Atividade;
 import com.luccasaps.projetopds.model.Modalidade;
@@ -11,9 +12,12 @@ import com.luccasaps.projetopds.repository.UserRepository;
 import com.luccasaps.projetopds.repository.ModalidadeRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -42,5 +46,24 @@ public class AtividadeService {
 
         // 5. Salva a nova atividade no banco de dados
         return atividadeRepository.save(atividade);
+    }
+
+    @Transactional
+    public Atividade update(UUID atividadeId, AtividadeUpdateDTO dto, String usernameAtual) {
+        // 1. Busca a atividade no banco de dados.
+        Atividade atividade = atividadeRepository.findById(atividadeId)
+                .orElseThrow(() -> new EntityNotFoundException("Atividade não encontrada com o ID: " + atividadeId));
+
+        // 2. !! VERIFICAÇÃO DE SEGURANÇA CRUCIAL !!
+        // Garante que o usuário que está fazendo a requisição é o mesmo que criou a atividade.
+        if (!atividade.getCriador().getUsername().equals(usernameAtual)) {
+            throw new AccessDeniedException("Acesso negado: você não tem permissão para alterar esta atividade.");
+        }
+
+        // 3. Aplica as atualizações dos campos que foram fornecidos no DTO
+        atividadeMapper.updateAtividadeFromDto(dto, atividade);
+
+        // 4. O @Transactional se encarrega de salvar a entidade atualizada no banco.
+        return atividade;
     }
 }
