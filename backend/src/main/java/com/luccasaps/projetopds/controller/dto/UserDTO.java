@@ -28,6 +28,7 @@ public record UserDTO(
         LocalDate dataNascimento,
 
         @NotBlank(message = "campo Obrigatorio")
+        @Size(min = 8, message = "A senha precisa ter no minimo 8 caracteres")
         String password,
 
         @NotBlank(message = "campo Obrigatorio")
