@@ -1,6 +1,7 @@
 package com.luccasaps.projetopds.service;
 
 import com.luccasaps.projetopds.controller.dto.UserDTO;
+import com.luccasaps.projetopds.controller.dto.UserUpdateDTO;
 import com.luccasaps.projetopds.controller.mappers.UserMapper;
 import com.luccasaps.projetopds.model.Modalidade;
 import com.luccasaps.projetopds.model.User;
@@ -8,14 +9,15 @@ import com.luccasaps.projetopds.repository.ModalidadeRepository;
 import com.luccasaps.projetopds.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
+import java.util.*;
 
 
 @Service
@@ -27,6 +29,7 @@ public class UserService{
     private final ModalidadeRepository modalidadeRepository;
     private final UserMapper userMapper;
 
+    @Transactional
     public User save(UserDTO userDTO){
 
         if(userRepository.findByEmail(userDTO.email()).isPresent()){
@@ -52,6 +55,35 @@ public class UserService{
         }
 
         // 4. Salva e RETORNA a entidade persistida
+        return userRepository.save(user);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<User> findAll(Pageable pageable){
+        return userRepository.findAll(pageable);
+    }
+
+    @Transactional
+    public User update(String username, UserUpdateDTO userUpdateDTO){
+
+        User user = userRepository.findOptionalByUsername(username)
+                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado: " + username));
+
+        // 2. Usa o mapper para atualizar os campos simples (name, email, phone, etc.)
+        // O mapper irá ignorar automaticamente qualquer campo que seja nulo no DTO.
+        userMapper.updateEntityFromDTO(userUpdateDTO, user);
+
+        // 3. Lógica especial para a senha: só atualiza se uma nova for enviada
+        if (StringUtils.hasText(userUpdateDTO.password())) {
+            user.setPassword(passwordEncoder.encode(userUpdateDTO.password()));
+        }
+
+        // 4. Lógica para atualizar as modalidades
+        if (userUpdateDTO.modalidadesNomes() != null) {
+            List<Modalidade> modalidades = modalidadeRepository.findByNomeIn(userUpdateDTO.modalidadesNomes());
+            user.setModalidades(new HashSet<>(modalidades));
+        }
+
         return userRepository.save(user);
     }
 }
