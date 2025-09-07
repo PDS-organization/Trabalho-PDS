@@ -15,15 +15,8 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { ChevronDownIcon } from "lucide-react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
-
-const GENDER_MAP = {
-  masculino: "masculino",
-  feminino: "feminino",
-  outro: "outro",
-  nao_informar: "nao_informar",
-} as const;
-
 
 
 const USERNAME_RE = /^(?=(?:.*[a-z]){5,})[a-z0-9_]{5,20}$/;
@@ -51,7 +44,7 @@ const step1Schema = z.object({
 });
 
 const cepRegex = /^\d{5}-?\d{3}$/;
-const genderOptions = ["masculino", "feminino", "nao_informar", "outro"] as const;
+const genderOptions = ["MASCULINO", "FEMININO", "NAO_INFORMAR", "OUTRO"] as const;
 
 const step2Schema = z.object({
   birthdate: z.string().min(1, "Selecione sua data"),
@@ -109,7 +102,7 @@ export default function CadastroPage() {
       password: "",
       birthdate: "",
       phone: "",
-      gender: "nao_informar",
+      gender: "NAO_INFORMAR",
       cep: "",
       uf: "",
       street: "",
@@ -163,7 +156,7 @@ export default function CadastroPage() {
       const dto = {
         name: values.name,
         genero: values.gender,
-        userName: values.username,            // note o N maiúsculo (igual ao seu Java)
+        username: values.username,            
         email: values.email,
         dataNascimento: values.birthdate,     // "YYYY-MM-DD"
         password: values.password,
@@ -174,7 +167,7 @@ export default function CadastroPage() {
         modalidadesNomes: values.sports
       };
 
-      const res = await fetch(`${API}/users`, {
+      const res = await fetch(`${API}/users/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(dto),
@@ -357,10 +350,10 @@ export default function CadastroPage() {
                             <SelectValue placeholder="Selecione" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="masculino">Masculino</SelectItem>
-                            <SelectItem value="feminino">Feminino</SelectItem>
-                            <SelectItem value="outro">Outro</SelectItem>
-                            <SelectItem value="nao_informar">Prefiro não informar</SelectItem>
+                            <SelectItem value="MASCULINO">Masculino</SelectItem>
+                            <SelectItem value="FEMININO">Feminino</SelectItem>
+                            <SelectItem value="OUTRO">Outro</SelectItem>
+                            <SelectItem value="NAO_INFORMAR">Prefiro não informar</SelectItem>
                           </SelectContent>
                         </Select>
                       </FormControl>

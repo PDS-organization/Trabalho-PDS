@@ -12,15 +12,15 @@ import {
 
 
 export const SPORT_IDS = [
-  "corrida",
-  "musculacao",
-  "natacao",
-  "boxe",
-  "futebol",
-  "volei",
-  "ciclismo",
-  "tenis",
-  "basquete",
+  "CORRIDA",
+  "MUSCULACAO",
+  "NATACAO",
+  "BOXE",
+  "FUTEBOL",
+  "VOLEI",
+  "CICLISMO",
+  "TENIS",
+  "BASQUETE",
 ] as const;
 
 export type SportId = typeof SPORT_IDS[number];
@@ -33,13 +33,13 @@ export type SportDef = {
 };
 
 export const SPORTS: SportDef[] = [
-  { id: "basquete", label: "Basquete", Icon: basqueteIcon },
-  { id: "boxe", label: "Boxe", Icon: boxeIcon },
-  { id: "ciclismo", label: "Ciclismo", Icon: ciclismoIcon },
-  { id: "corrida", label: "Corrida", Icon: corridaIcon },
-  { id: "futebol", label: "Futebol", Icon: futebolIcon },
-  { id: "musculacao", label: "Musculação", Icon: musculacaoIcon },
-  { id: "natacao", label: "Natação", Icon: natacaoIcon },
-  { id: "tenis", label: "Tênis", Icon: tenisIcon },
-  { id: "volei", label: "Vôlei", Icon: voleiIcon },
+  { id: "BASQUETE", label: "Basquete", Icon: basqueteIcon },
+  { id: "BOXE", label: "Boxe", Icon: boxeIcon },
+  { id: "CICLISMO", label: "Ciclismo", Icon: ciclismoIcon },
+  { id: "CORRIDA", label: "Corrida", Icon: corridaIcon },
+  { id: "FUTEBOL", label: "Futebol", Icon: futebolIcon },
+  { id: "MUSCULACAO", label: "Musculação", Icon: musculacaoIcon },
+  { id: "NATACAO", label: "Natação", Icon: natacaoIcon },
+  { id: "TENIS", label: "Tênis", Icon: tenisIcon },
+  { id: "VOLEI", label: "Vôlei", Icon: voleiIcon },
 ];

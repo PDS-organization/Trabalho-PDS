@@ -87,7 +87,7 @@ export default function Navbar() {
                 </Link>
               </Button>
               <Button variant="default" size="sm" asChild>
-                <Link href="/register">
+                <Link href="/cadastro">
                   Cadastrar-se
                 </Link>
               </Button>
@@ -98,7 +98,6 @@ export default function Navbar() {
     );
   }
 
-  // Navbar para usuário LOGADO (funcionalidade original)
   return (
     <header className="fixed inset-x-0 top-0 z-[100] border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 overflow-x-clip">
       <div className="app-container">

@@ -1,12 +1,12 @@
 INSERT INTO modalidade (nome) VALUES
-                                  ('corrida'),
-                                  ('musculacao'),
-                                  ('natacao'),
-                                  ('boxe'),
-                                  ('futebol'),
-                                  ('volei'),
-                                  ('ciclismo'),
-                                  ('tenis'),
-                                  ('basquete');
+                                  ('CORRIDA'),
+                                  ('MUSCULACAO'),
+                                  ('NATACAO'),
+                                  ('BOXE'),
+                                  ('FUTEBOL'),
+                                  ('VOLEI'),
+                                  ('CICLISMO'),
+                                  ('TENIS'),
+                                  ('BASQUETE');
 
 --script para povoar modalidades BD
