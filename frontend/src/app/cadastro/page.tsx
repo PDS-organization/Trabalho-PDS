@@ -52,7 +52,12 @@ const step2Schema = z.object({
   cep: z.string().min(8, "CEP obrigatório").regex(cepRegex, "CEP no formato 00000-000"),
   uf: z.string().min(2, "Informe o estado"),
   street: z.string().min(1, "Informe a rua"),
-});
+}).refine((v) => {
+  const [y,m,d] = v.birthdate.split("-").map(Number);
+  const when = new Date(y, (m||1)-1, d||1).setHours(0,0,0,0);
+  const today = new Date().setHours(0,0,0,0);
+  return when <= today;
+}, { path: ["birthdate"], message: "A data deve ser no passado" });
 
 const step3Schema = z.object({
   sports: z.array(z.enum(SPORT_IDS)).min(1, "Selecione pelo menos 1 esporte"),

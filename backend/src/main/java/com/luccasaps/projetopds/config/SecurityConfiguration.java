@@ -56,6 +56,7 @@ public class SecurityConfiguration{
                 .authorizeHttpRequests(authorize -> authorize
                         // Permite acesso irrestrito ao H2 Console (desenvolvimento)
                         .requestMatchers("/h2-console/**").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         // Endpoints comuns que podem precisar ser públicos
                         .requestMatchers("/api/auth/**").permitAll()
@@ -139,17 +140,9 @@ public class SecurityConfiguration{
 
     @Bean
     public UserDetailsService userDetailsService() {
-        return username -> {
-            // 1. Chama o novo método findByUsername, que retorna 'User' ou 'null'
-            User user = userRepository.findByUsername(username);
-
-            // 2. Verifica se o usuário foi encontrado
-            if (user == null) {
-                // 3. Se não foi encontrado, lança a exceção
-                throw new UsernameNotFoundException("Usuário não encontrado com o username: " + username);
-            }
-
-            // 4. Se foi encontrado, retorna o objeto User
+        return email -> {
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado (email): " + email));
             return user;
         };
     }

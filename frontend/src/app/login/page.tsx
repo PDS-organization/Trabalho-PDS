@@ -26,20 +26,29 @@ export default function LoginPage() {
 
   async function onSubmit(values: Values) {
     try {
-      const res = await fetch("/api/fake/login", {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify(values), // { email, password }
       });
+
+      const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        toast.error("Falha no login", { description: data?.message ?? "Tente novamente." });
-        return;
+        const msg = data?.message || (res.status === 401 ? "Credenciais inválidas" : `HTTP ${res.status}`);
+        // marca o campo correto quando fizer sentido
+        if (res.status === 401) {
+          form.setError("password", { message: "Credenciais inválidas" });
+        }
+        throw new Error(msg);
       }
+
       toast.success("Bem-vindo!");
-      router.push("/"); // ou /dashboard
-    } catch (e) {
-      toast.error("Erro inesperado");
+      // reload total garante que SSR já veja o cookie HttpOnly
+      window.location.href = "/";
+    } catch (e: any) {
+      toast.error("Falha no login", { description: e.message ?? "Tente novamente." });
+      console.error(e);
     }
   }
 

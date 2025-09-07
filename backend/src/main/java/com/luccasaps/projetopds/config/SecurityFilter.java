@@ -21,24 +21,32 @@ import java.io.IOException;
 public class SecurityFilter extends OncePerRequestFilter {
 
     private final TokenService tokenService;
-
     private final UserRepository userRepository;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        var tokenJWT = recuperarToken(request);
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain
+    ) throws ServletException, IOException {
 
-        if (tokenJWT != null) {
-            var subject = tokenService.getSubject(tokenJWT); // O subject é o email
+        String tokenJWT = recuperarToken(request);
 
-            // 1. O repositório agora retorna um objeto 'User'
-            User user = userRepository.findByUsername(subject);
+        if (tokenJWT != null && !tokenJWT.isBlank()) {
+            try {
+                // subject agora é o E-MAIL (ajustado no TokenService)
+                String subject = tokenService.getSubject(tokenJWT);
 
-            if (user != null) {
-                // 2. Mesmo 'user' sendo do tipo User, ele também é um UserDetails.
-                //    Então podemos usá-lo diretamente para criar a autenticação.
-                var authentication = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                User user = userRepository.findByEmail(subject).orElse(null);
+                if (user != null) {
+                    var authentication = new UsernamePasswordAuthenticationToken(
+                            user, null, user.getAuthorities()
+                    );
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                }
+            } catch (Exception ex) {
+                // Token inválido/expirado → apenas não autentica
+                // (rotas públicas continuam acessíveis; rotas protegidas exigirão auth)
             }
         }
 
@@ -46,9 +54,9 @@ public class SecurityFilter extends OncePerRequestFilter {
     }
 
     private String recuperarToken(HttpServletRequest request) {
-        var authorizationHeader = request.getHeader("Authorization");
-        if (authorizationHeader != null) {
-            return authorizationHeader.replace("Bearer ", "");
+        String authorizationHeader = request.getHeader("Authorization");
+        if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+            return authorizationHeader.substring("Bearer ".length());
         }
         return null;
     }
