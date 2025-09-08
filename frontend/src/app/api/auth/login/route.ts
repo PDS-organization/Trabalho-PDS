@@ -5,7 +5,6 @@ const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
 export const runtime = "nodejs";
 
 export async function OPTIONS() {
-  // Pré-flight CORS simples
   return NextResponse.json({ ok: true });
 }
 
@@ -43,16 +42,23 @@ export async function POST(req: Request) {
       );
     }
 
-    // Para SETAR cookie, use NextResponse:
+    const raw = typeof data?.token === "string" ? data.token : undefined;
+    if (!raw) {
+      return NextResponse.json({ code: "NO_TOKEN", message: "Token não recebido do servidor." }, { status: 502 });
+    }
+
+    const jwt = raw.replace(/^Bearer\s+/i, "");
+
     const res = NextResponse.json({ ok: true });
+    console.log(res)
     res.cookies.set({
-      name: "sb:session",
-      value: token,
+      name: "sb_session",
+      value: jwt,
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
       path: "/",
-      maxAge: 60 * 60 * 24 * 7, // 7d
+      maxAge: 60 * 60 * 24 * 7,
     });
     return res;
   } catch (e: any) {

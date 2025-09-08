@@ -30,6 +30,7 @@ export default function LoginPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values), // { email, password }
+        credentials: "include"
       });
 
       const data = await res.json().catch(() => ({}));
@@ -44,8 +45,8 @@ export default function LoginPage() {
       }
 
       toast.success("Bem-vindo!");
-      // reload total garante que SSR já veja o cookie HttpOnly
-      window.location.href = "/";
+      const nextUrl = new URLSearchParams(window.location.search).get("next") || "/app";
+      window.location.href = nextUrl;
     } catch (e: any) {
       toast.error("Falha no login", { description: e.message ?? "Tente novamente." });
       console.error(e);

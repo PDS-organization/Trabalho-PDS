@@ -21,18 +21,26 @@ function Logo({ className = "h-6 w-auto" }: { className?: string }) {
   return <BrandLogo className={className} />;
 }
 
+type Me = {
+  id: string;
+  email: string;
+  username: string;
+  name?: string;
+  avatarUrl?: string; // se um dia você incluir no /api/auth/me
+} | null;
+
 function useMe() {
-  const [me, setMe] = useState<{ name?: string; email?: string; avatarUrl?: string; username?: string } | null>(null);
+  const [me, setMe] = useState<Me>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
-    fetch("/api/fake/me")
-      .then(async (r) => {
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then(async (r) => (r.ok ? r.json() : null))
+      .then((data) => {
         if (!mounted) return;
-        if (!r.ok) return setMe(null);
-        const j = await r.json();
-        setMe(j.user ?? null);
+        // sua rota /api/auth/me responde { id, email, username, name? }
+        setMe(data ?? null);
       })
       .catch(() => {
         if (mounted) setMe(null);
@@ -40,7 +48,9 @@ function useMe() {
       .finally(() => {
         if (mounted) setLoading(false);
       });
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   return { user: me, loading };
@@ -82,14 +92,10 @@ export default function Navbar() {
             {/* Botões de autenticação */}
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" asChild>
-                <Link href="/login">
-                  Entrar
-                </Link>
+                <Link href="/login">Entrar</Link>
               </Button>
               <Button variant="default" size="sm" asChild>
-                <Link href="/cadastro">
-                  Cadastrar-se
-                </Link>
+                <Link href="/cadastro">Cadastrar-se</Link>
               </Button>
             </div>
           </div>
@@ -98,6 +104,7 @@ export default function Navbar() {
     );
   }
 
+  // Navbar para usuário LOGADO
   return (
     <header className="fixed inset-x-0 top-0 z-[100] border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 overflow-x-clip">
       <div className="app-container">
@@ -123,10 +130,9 @@ export default function Navbar() {
                   <NavigationMenuLink asChild active={isActive("/app/buscar")}>
                     <Link
                       href="/app/buscar"
-                      className={`px-3 py-2 rounded-md text-sm transition-colors ${isActive("/app/buscar")
-                        ? "bg-amber-100 text-amber-900"
-                        : "hover:bg-muted"
-                        }`}
+                      className={`px-3 py-2 rounded-md text-sm transition-colors ${
+                        isActive("/app/buscar") ? "bg-amber-100 text-amber-900" : "hover:bg-muted"
+                      }`}
                     >
                       Buscar parceiros
                     </Link>
@@ -137,10 +143,9 @@ export default function Navbar() {
                   <NavigationMenuLink asChild active={isActive("/app/criar")}>
                     <Link
                       href="/app/criar"
-                      className={`px-3 py-2 rounded-md text-sm transition-colors ${isActive("/app/criar")
-                        ? "bg-amber-100 text-amber-900"
-                        : "hover:bg-muted"
-                        }`}
+                      className={`px-3 py-2 rounded-md text-sm transition-colors ${
+                        isActive("/app/criar") ? "bg-amber-100 text-amber-900" : "hover:bg-muted"
+                      }`}
                     >
                       Criar atividade
                     </Link>
@@ -151,12 +156,22 @@ export default function Navbar() {
           </nav>
 
           <nav className="sm:hidden flex items-center gap-2">
-            <Link href="/app/buscar" aria-label="Buscar parceiros"
-              className={`p-2 rounded-md transition-colors ${isActive("/app/buscar") ? "bg-amber-100 text-amber-900" : "hover:bg-muted"}`}>
+            <Link
+              href="/app/buscar"
+              aria-label="Buscar parceiros"
+              className={`p-2 rounded-md transition-colors ${
+                isActive("/app/buscar") ? "bg-amber-100 text-amber-900" : "hover:bg-muted"
+              }`}
+            >
               <Search className="h-5 w-5" />
             </Link>
-            <Link href="/app/criar" aria-label="Criar atividade"
-              className={`p-2 rounded-md transition-colors ${isActive("/app/criar") ? "bg-amber-100 text-amber-900" : "hover:bg-muted"}`}>
+            <Link
+              href="/app/criar"
+              aria-label="Criar atividade"
+              className={`p-2 rounded-md transition-colors ${
+                isActive("/app/criar") ? "bg-amber-100 text-amber-900" : "hover:bg-muted"
+              }`}
+            >
               <PlusCircle className="h-5 w-5" />
             </Link>
           </nav>
@@ -210,7 +225,8 @@ export default function Navbar() {
                         </Link>
                       </li>
                       <li className="border-t pt-1 mt-1">
-                        <form action="/api/fake/logout" method="POST">
+                        {/* Logout real */}
+                        <form action="/api/auth/logout" method="POST">
                           <button
                             type="submit"
                             className="w-full text-left cursor-pointer rounded-md px-2 py-1.5 text-sm hover:bg-muted text-muted-foreground"
@@ -225,7 +241,6 @@ export default function Navbar() {
               </NavigationMenuList>
             </NavigationMenu>
           </div>
-
         </div>
       </div>
     </header>

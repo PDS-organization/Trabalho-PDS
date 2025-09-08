@@ -1,6 +1,5 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { verifySession } from "@/lib/jwt";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
