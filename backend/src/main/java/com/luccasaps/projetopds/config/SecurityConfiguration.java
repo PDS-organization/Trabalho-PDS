@@ -27,79 +27,41 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * Configuração de segurança do Spring Security
- *
- * Mantém a funcionalidade original com melhorias de:
- * - Headers de segurança adicionais
- * - Configuração CORS básica
- * - Melhor organização de código
- * - Comentários explicativos
- */
+import com.luccasaps.projetopds.config.RestAuthEntryPoint; // 👈 novo
+
 @Configuration
 @EnableWebSecurity
 @AllArgsConstructor
-public class SecurityConfiguration{
-
-
+public class SecurityConfiguration {
 
     private final SecurityFilter securityFilter;
-
     private final UserRepository userRepository;
+    private final RestAuthEntryPoint restAuthEntryPoint; // 👈 injeta EntryPoint
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // Configuração das regras de autorização para requisições HTTP
-                .cors(cors -> {})
-                // Inicia a configuração das regras de autorização para as requisições HTTP
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // 👈 só stateless
+                .exceptionHandling(eh -> eh.authenticationEntryPoint(restAuthEntryPoint))                    // 👈 401 em falhas
                 .authorizeHttpRequests(authorize -> authorize
-                        // Permite acesso irrestrito ao H2 Console (desenvolvimento)
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-
-                        // Endpoints comuns que podem precisar ser públicos
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers(HttpMethod.POST, "/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/users/register").permitAll()
-                        //.requestMatchers(HttpMethod.POST, "/users/**").permitAll()
-
-                        // Documentação da API (Swagger)
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-
-                        // Para todas as outras requisições, exige que o usuário esteja autenticado
                         .anyRequest().authenticated()
                 )
-
-                // Configuração de headers de segurança (melhorias sem quebrar funcionalidade)
                 .headers(headers -> headers
-                        // Mantém configuração original para H2
                         .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
-
-
-                        // Adiciona headers de segurança básicos
-                        .contentTypeOptions(contentTypeOptions -> {})
-                        .httpStrictTransportSecurity(hstsConfig -> hstsConfig
-                                .maxAgeInSeconds(31536000)
-                                .includeSubDomains(false) // Menos restritivo para desenvolvimento
-                        )
+                        .contentTypeOptions(c -> {})
+                        .httpStrictTransportSecurity(hsts -> hsts.maxAgeInSeconds(31536000).includeSubDomains(false))
                 )
-                // Configuração CSRF - MANTÉM ORIGINAL (desabilitado)
-                .csrf(AbstractHttpConfigurer::disable)
-
-                // Adiciona configuração CORS básica
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class)
-
-
-                // Configuração de sessão (adiciona controles básicos)
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                        .maximumSessions(5) // Permite até 5 sessões simultâneas
-                        .maxSessionsPreventsLogin(false)
-                );
+                .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
