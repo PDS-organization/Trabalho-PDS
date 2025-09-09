@@ -53,9 +53,9 @@ const step2Schema = z.object({
   uf: z.string().min(2, "Informe o estado"),
   street: z.string().min(1, "Informe a rua"),
 }).refine((v) => {
-  const [y,m,d] = v.birthdate.split("-").map(Number);
-  const when = new Date(y, (m||1)-1, d||1).setHours(0,0,0,0);
-  const today = new Date().setHours(0,0,0,0);
+  const [y, m, d] = v.birthdate.split("-").map(Number);
+  const when = new Date(y, (m || 1) - 1, d || 1).setHours(0, 0, 0, 0);
+  const today = new Date().setHours(0, 0, 0, 0);
   return when <= today;
 }, { path: ["birthdate"], message: "A data deve ser no passado" });
 
@@ -161,7 +161,7 @@ export default function CadastroPage() {
       const dto = {
         name: values.name,
         genero: values.gender,
-        username: values.username,            
+        username: values.username,
         email: values.email,
         dataNascimento: values.birthdate,     // "YYYY-MM-DD"
         password: values.password,
@@ -330,9 +330,11 @@ export default function CadastroPage() {
                             mode="single"
                             selected={parseYMD(field.value)}
                             captionLayout="dropdown"
-                            onSelect={(date) => {
-                              if (date) {
-                                field.onChange(toYMD(date));
+                            fromDate={new Date()}
+                            disabled={{ after: new Date() }}
+                            onSelect={(d) => {
+                              if (d) {
+                                field.onChange(toYMD(d));
                                 setBirthOpen(false);
                               }
                             }}

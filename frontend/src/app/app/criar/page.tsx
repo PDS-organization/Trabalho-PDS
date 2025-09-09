@@ -317,6 +317,8 @@ export default function CreateActivityForm({
     }
   }
 
+  
+
   return (
     <Form {...form}>
       <form
@@ -497,7 +499,7 @@ export default function CreateActivityForm({
                       selected={parseYMD(field.value)}
                       captionLayout="dropdown"
                       fromDate={new Date()}
-                      disabled={{ before: new Date() }}
+                      disabled={{ after: new Date() }}
                       onSelect={(d) => {
                         if (d) {
                           field.onChange(toYMD(d));
