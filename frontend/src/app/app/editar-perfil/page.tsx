@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import EditProfileForm from "@/components/edit-profile-form";
 import { getSessionUser } from "@/lib/session";
+import Link from "next/link";
 
 export const runtime = "nodejs";
 
@@ -16,7 +17,7 @@ export default async function EditarPerfilPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Editar perfil</h1>
           <Button asChild variant="ghost">
-            <a href="/app">Voltar</a>
+            <Link href="/app">Voltar</Link>
           </Button>
         </div>
 
