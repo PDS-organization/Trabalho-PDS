@@ -30,14 +30,16 @@ public class AtividadeController implements GenericController {
     private final AtividadeMapper atividadeMapper;
 
     @PostMapping
-    public ResponseEntity<Void> create(@RequestBody AtividadeCreateDTO dto, Authentication authentication) {
+    public ResponseEntity<AtividadeResponseDTO> create(@RequestBody AtividadeCreateDTO dto, Authentication authentication) {
         // 'authentication.getName()' irá conter o email do usuário logado (do token JWT)
 
         Atividade atividade = atividadeService.create(dto, authentication.getName());
 
         URI location = gerarHeaderLocation(atividade.getId());
 
-        return ResponseEntity.created(location).build(); // Retorna 201 Created
+        AtividadeResponseDTO responseDTO = atividadeMapper.toResponseDTO(atividade);
+
+        return ResponseEntity.created(location).body(responseDTO); // Retorna 201 Created
     }
 
     /**
