@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,9 +70,10 @@ function formatCEP(raw: string) {
   return digits.replace(/^(\d{5})(\d{0,3}).*/, (_, a, b) => (b ? `${a}-${b}` : a));
 }
 
-// Função para consultar ViaCEP
-async function fetchViaCEP(cep: string): Promise<{ logradouro: string; uf: UF } | null> {
+// ViaCEP
+async function fetchViaCEP(cep?: string): Promise<{ logradouro: string; uf: UF } | null> {
   try {
+    if (!cep) return null;
     const cleanCEP = cep.replace(/\D/g, "");
     if (cleanCEP.length !== 8) return null;
 
@@ -91,7 +93,7 @@ async function fetchViaCEP(cep: string): Promise<{ logradouro: string; uf: UF } 
 }
 
 // -------------------------------------------------------------
-// Schema (corrigido)
+// Schema
 // -------------------------------------------------------------
 const schema = z.object({
   sport: z.custom<SportId>(
@@ -114,33 +116,35 @@ const schema = z.object({
   }, z.number().int().min(1, "Mínimo 1").max(500, "Máximo 500").nullable()),
 }).refine((v) => {
   const today = toYMD(new Date());
-  if (v.date === today) {
-    return v.time >= nowHHMM();
-  }
+  if (v.date === today) return v.time >= nowHHMM();
   return true;
 }, { path: ["time"], message: "Use um horário no futuro" });
 
 export type CreateActivityValues = z.infer<typeof schema>;
 
-export type CreateActivityPayload = {
-  creatorId: string;
-  sport: SportId;
-  date: string; // YYYY-MM-DD
-  time: string; // HH:mm
-  cep: string;
-  uf: UF;
-  street?: string | "";
-  title?: string | "";
-  notes?: string | "";
-  capacity: number | null;
-  status: "open" | "closed" | "canceled";
-  participants?: Array<{
-    userId: string;
-    joinedAt: string; // ISO
-    role: "owner" | "member";
-  }>;
-  matches?: Array<{ userId: string; status: "accepted" | "pending" | "rejected"; at: string }>;
-};
+// -------------------------------------------------------------
+// Backend DTO helper
+// -------------------------------------------------------------
+function statusToBackend(s: CreateActivityValues["status"]) {
+  return s.toUpperCase(); // "OPEN" | "CLOSED" | "CANCELED"
+}
+function timeToHHMMSS(t: string) {
+  return /^\d{2}:\d{2}:\d{2}$/.test(t) ? t : `${t}:00`;
+}
+function getModalidadeIdOrThrow(sportId: SportId): number {
+  const entry: any = SPORTS.find((x) => x.id === sportId);
+  const maybe =
+    entry?.backendId ??
+    entry?.modalidadeId ??
+    entry?.apiId ??
+    entry?.serverId;
+  if (typeof maybe !== "number") {
+    throw new Error(
+      `Configure o backendId para o esporte "${sportId}" em "@/data/sports".`
+    );
+  }
+  return maybe as number;
+}
 
 // -------------------------------------------------------------
 // Component
@@ -151,15 +155,17 @@ export default function CreateActivityForm({
   defaultUF = "SP",
   defaultCEP = "",
   defaultStreet = "",
-  onCreate,
+  onCreate, // opcional: callback após sucesso
 }: {
   className?: string;
   currentUserId: string;
   defaultUF?: UF;
   defaultCEP?: string;
   defaultStreet?: string;
-  onCreate?: (payload: CreateActivityPayload) => Promise<void> | void;
+  onCreate?: (rawDto: any) => Promise<void> | void;
 }) {
+  const router = useRouter();
+
   const form = useForm<CreateActivityValues>({
     resolver: zodResolver(schema) as any,
     mode: "onChange",
@@ -180,42 +186,47 @@ export default function CreateActivityForm({
   const [openCal, setOpenCal] = useState(false);
   const [openSports, setOpenSports] = useState(false);
   const [isLoadingCEP, setIsLoadingCEP] = useState(false);
-
+  const [submitting, setSubmitting] = useState(false);
   const todayYMD = toYMD(new Date());
 
   const getMinTime = useCallback(() => {
     const currentDate = form.getValues("date");
     return currentDate === todayYMD ? nowHHMM() : "00:00";
-  }, [todayYMD]);
+  }, [form, todayYMD]);
 
   const isFormValid = form.formState.isValid;
 
-  // Debounce para consulta do ViaCEP
+  // Debounce ViaCEP → preenche UF e Rua
   useEffect(() => {
-    const subscription = form.watch((value, { name }) => {
-      if (name === "cep" && value.cep && typeof value.cep === "string") {
-        const cleanCEP = value.cep.replace(/\D/g, "");
-        if (cleanCEP.length === 8) {
-          const timeoutId = setTimeout(async () => {
-            setIsLoadingCEP(true);
-            try {
-              const viaCepData = await fetchViaCEP(value.cep);
-              if (viaCepData) {
-                form.setValue("uf", viaCepData.uf, { shouldValidate: true });
-              }
-            } catch (error) {
-              console.error("Erro ao consultar ViaCEP:", error);
-            } finally {
-              setIsLoadingCEP(false);
-            }
-          }, 500);
+    let cepTimer: ReturnType<typeof setTimeout> | null = null;
 
-          return () => clearTimeout(timeoutId);
+    const subscription = form.watch((value, { name }) => {
+      if (name !== "cep") return;
+      const cep = typeof value.cep === "string" ? value.cep : "";
+      const cleanCEP = cep.replace(/\D/g, "");
+      if (cleanCEP.length !== 8) return;
+
+      if (cepTimer) clearTimeout(cepTimer);
+      cepTimer = setTimeout(async () => {
+        setIsLoadingCEP(true);
+        try {
+          const viaCepData = await fetchViaCEP(cep); // agora pode ser undefined sem erro
+          if (viaCepData) {
+            form.setValue("uf", viaCepData.uf, { shouldValidate: true });
+            form.setValue("street", viaCepData.logradouro, { shouldValidate: true });
+          }
+        } catch (e) {
+          console.error("Erro ao consultar ViaCEP:", e);
+        } finally {
+          setIsLoadingCEP(false);
         }
-      }
+      }, 500);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      if (cepTimer) clearTimeout(cepTimer);
+      subscription.unsubscribe();
+    };
   }, [form]);
 
   // UI helper (ícone à esquerda)
@@ -249,47 +260,97 @@ export default function CreateActivityForm({
   }, [form]);
 
   async function submit(values: CreateActivityValues) {
-    const payload: CreateActivityPayload = {
-      creatorId: currentUserId,
-      sport: values.sport,
-      date: values.date,
-      time: values.time,
-      cep: values.cep.replace(/\D/g, "").replace(/^(\d{5})(\d{3})$/, "$1-$2"),
-      uf: values.uf,
-      street: values.street?.trim() ?? "",
-      title: values.title?.trim() ?? "",
-      notes: values.notes?.trim() ?? "",
-      capacity: values.capacity ?? null,
-      status: values.status,
-      participants: [
-        {
-          userId: currentUserId,
-          joinedAt: new Date().toISOString(),
-          role: "owner",
-        },
-      ],
-      matches: [],
-    };
+    try {
+      setSubmitting(true);
 
+      const modalidadeId = getModalidadeIdOrThrow(values.sport);
 
-    if (onCreate) {
-      await onCreate(payload);
-    } else {
-      console.log("CreateActivity payload =>", payload);
+      const dto = {
+        modalidadeId,
+        titulo: values.title?.trim() || null,
+        observacoes: values.notes?.trim() || null,
+        data: values.date, // "YYYY-MM-DD"
+        horario: timeToHHMMSS(values.time), // "HH:mm:ss"
+        cep: values.cep.replace(/\D/g, "").replace(/^(\d{5})(\d{3})$/, "$1-$2"), // 00000-000
+        uf: values.uf,
+        street: values.street?.trim() || null,
+        capacidade: values.capacity, // pode ser null
+        semLimite: values.capacity === null,
+        status: statusToBackend(values.status), // "OPEN" | "CLOSED" | "CANCELED"
+      };
+
+      // callback externa (se quiser logar/telemetria)
+      if (onCreate) {
+        await onCreate(dto);
+      }
+
+      const res = await fetch("/api/atividades", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(dto),
+      });
+
+      // Sucesso
+      if (res.status === 201) {
+        const data = await res.json().catch(() => ({} as any));
+        const id = data?.id as string | undefined;
+        const location = data?.location as string | undefined;
+
+        // tenta redirecionar para o detalhe
+        if (id) {
+          router.push(`/app/atividades/${id}`);
+        } else if (location) {
+          // caso venha Location absoluto
+          try {
+            const m = location.match(/\/atividades\/([0-9a-fA-F-]+)/);
+            if (m) return router.push(`/app/atividades/${m[1]}`);
+          } catch { }
+          router.push("/app"); // fallback
+        } else {
+          router.push("/app");
+        }
+
+        // reset do form
+        form.reset({
+          sport: undefined as unknown as SportId,
+          cep: formatCEP(""),
+          uf: "SP",
+          date: "",
+          time: "",
+          street: "",
+          title: "",
+          notes: "",
+          capacity: null,
+          status: "open",
+        });
+        return;
+      }
+
+      // Erros tratados
+      let errText = "";
+      try { errText = await res.text(); } catch { }
+      let err: any = null;
+      try { err = errText ? JSON.parse(errText) : null; } catch { }
+
+      if (res.status === 400) {
+        console.error("Validação backend:", err || errText);
+        alert(err?.message ?? "Dados inválidos. Verifique os campos.");
+        return;
+      }
+      if (res.status === 401) {
+        alert("Sessão expirada. Faça login novamente.");
+        return;
+      }
+
+      console.error("Erro upstream:", res.status, err || errText);
+      alert(`Erro ao criar atividade (backend ${res.status}).`);
+    } catch (e: any) {
+      console.error(e);
+      alert(e?.message ?? "Falha ao criar atividade.");
+    } finally {
+      setSubmitting(false);
     }
-
-    form.reset({
-      sport: undefined as unknown as SportId,
-      cep: formatCEP(defaultCEP),
-      uf: defaultUF,
-      date: "",
-      time: "",
-      street: defaultStreet,
-      title: "",
-      notes: "",
-      capacity: null,
-      status: "open",
-    });
   }
 
   return (
@@ -313,6 +374,7 @@ export default function CreateActivityForm({
                           type="button"
                           variant="outline"
                           className="h-12 w-full justify-between text-base"
+                          onClick={() => setOpenSports(true)}
                         >
                           {selectedSport
                             ? (() => {
@@ -355,7 +417,7 @@ export default function CreateActivityForm({
                                   ].join(" ")}
                                 >
                                   {checked ? (
-                                    <div className="h-2 w-2 rounded-full bg-amber-500" />
+                                    <div className="h-2 w-2 rounded-full" />
                                   ) : null}
                                 </div>
                                 <s.Icon className="h-4 w-4 shrink-0" />
@@ -382,7 +444,6 @@ export default function CreateActivityForm({
             <FormItem>
               <FormControl>
                 <WithIcon icon={<MapPin className="h-5 w-5 text-muted-foreground" />}>
-
                   <Input
                     inputMode="numeric"
                     placeholder="CEP (00000-000)"
@@ -395,7 +456,6 @@ export default function CreateActivityForm({
                       <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                     </div>
                   )}
-
                 </WithIcon>
               </FormControl>
               <FormMessage />
@@ -407,7 +467,7 @@ export default function CreateActivityForm({
         <FormField
           control={form.control}
           name="uf"
-          render={({ field }) => (
+          render={() => (
             <FormItem>
               <FormControl>
                 <WithIcon icon={<MapPin className="h-5 w-5 text-muted-foreground" />}>
@@ -425,6 +485,7 @@ export default function CreateActivityForm({
           )}
         />
 
+        {/* STREET - DISABLED (preenchido via CEP) */}
         <FormField
           control={form.control}
           name="street"
@@ -460,6 +521,7 @@ export default function CreateActivityForm({
                           type="button"
                           variant="outline"
                           className="h-12 w-full justify-between text-base"
+                          onClick={() => setOpenCal(true)}
                         >
                           {field.value ? formatBR(field.value) : "Selecione a data"}
                           <ChevronDownIcon className="h-4 w-4 opacity-70" />
@@ -476,8 +538,7 @@ export default function CreateActivityForm({
                       disabled={{ before: new Date() }}
                       onSelect={(d) => {
                         if (d) {
-                          const ymd = toYMD(d);
-                          field.onChange(ymd);
+                          field.onChange(toYMD(d));
                           setOpenCal(false);
                         }
                       }}
@@ -513,9 +574,6 @@ export default function CreateActivityForm({
             </FormItem>
           )}
         />
-
-
-
 
         {/* TITLE (opcional) */}
         <FormField
@@ -557,7 +615,7 @@ export default function CreateActivityForm({
           )}
         />
 
-        {/* CAPACITY */}
+        {/* CAPACITY + NO LIMIT */}
         <div className="grid grid-cols-[1fr_auto] gap-2 items-center">
           <FormField
             control={form.control}
@@ -575,9 +633,8 @@ export default function CreateActivityForm({
                       value={capacityIsNoLimit ? "" : (field.value ?? "")}
                       onChange={(e) => {
                         const v = e.target.value;
-                        if (v === "") {
-                          field.onChange(null);
-                        } else {
+                        if (v === "") field.onChange(null);
+                        else {
                           const n = Number(v);
                           field.onChange(Number.isFinite(n) ? n : v);
                         }
@@ -641,9 +698,16 @@ export default function CreateActivityForm({
           <Button
             type="submit"
             className="h-12 px-6 text-base"
-            disabled={!isFormValid || form.formState.isSubmitting}
+            disabled={!isFormValid || form.formState.isSubmitting || submitting}
           >
-            Criar atividade
+            {submitting ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Criando…
+              </span>
+            ) : (
+              "Criar atividade"
+            )}
           </Button>
         </div>
       </form>

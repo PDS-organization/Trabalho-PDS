@@ -1,6 +1,9 @@
 spring:
   application:
     name: ProjetoPDS
+    jackson:
+      mapper:
+        accept-case-insensitive-enums: true
 
   datasource:
     driver-class-name: org.h2.Driver
@@ -27,3 +30,5 @@ logging:
   level:
     com.luccasaps.projetopds: DEBUG
     org.springframework.security: DEBUG
+
+
