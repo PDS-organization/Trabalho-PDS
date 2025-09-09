@@ -1,10 +1,13 @@
 package com.luccasaps.projetopds.service;
 
 import com.luccasaps.projetopds.controller.dto.UserDTO;
+import com.luccasaps.projetopds.controller.dto.UserResponseDTO;
 import com.luccasaps.projetopds.controller.dto.UserUpdateDTO;
 import com.luccasaps.projetopds.controller.mappers.UserMapper;
+import com.luccasaps.projetopds.model.Atividade;
 import com.luccasaps.projetopds.model.Modalidade;
 import com.luccasaps.projetopds.model.User;
+import com.luccasaps.projetopds.repository.AtividadeRepository;
 import com.luccasaps.projetopds.repository.ModalidadeRepository;
 import com.luccasaps.projetopds.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -28,6 +31,7 @@ public class UserService{
     private final UserRepository userRepository;
     private final ModalidadeRepository modalidadeRepository;
     private final UserMapper userMapper;
+    private final AtividadeRepository atividadeRepository;
 
     @Transactional
     public User save(UserDTO userDTO){
@@ -64,6 +68,13 @@ public class UserService{
     }
 
     @Transactional
+    public UserResponseDTO findByUsername(String username){
+        User user = userRepository.findOptionalByUsername(username).orElseThrow(() -> new EntityNotFoundException("Usuario não encontrado com username: " + username));
+
+        return userMapper.toResponseDTO(user);
+    }
+
+    @Transactional
     public User update(String username, UserUpdateDTO userUpdateDTO){
 
         User user = userRepository.findOptionalByUsername(username)
@@ -85,5 +96,22 @@ public class UserService{
         }
 
         return user;
+    }
+
+    @Transactional
+    public void deleteSelf(String username) {
+        // 1. Busca o usuário que será excluído.
+        User user = userRepository.findOptionalByUsername(username)
+                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado: " + username));
+
+        // 2. Busca e exclui todas as atividades criadas por este usuário para evitar erros de chave estrangeira.
+        List<Atividade> atividadesCriadas = atividadeRepository.findAllByCriador(user);
+        if (!atividadesCriadas.isEmpty()) {
+            atividadeRepository.deleteAll(atividadesCriadas);
+        }
+
+        // 3. Agora, com as dependências removidas, exclui o usuário.
+        // O JPA cuidará de remover as associações em tabelas de junção (como user_modalidade).
+        userRepository.delete(user);
     }
 }
