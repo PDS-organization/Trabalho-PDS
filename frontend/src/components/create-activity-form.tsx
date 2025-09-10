@@ -37,18 +37,20 @@ const cepRegex = /^\d{5}-?\d{3}$/;
 const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 const UFS = [
-  "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT",
-  "PA", "PB", "PE", "PI", "PR", "RJ", "RN", "RO", "RR", "RS", "SC", "SE", "SP", "TO",
+  "AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT",
+  "PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO",
 ] as const;
 type UF = typeof UFS[number];
-
-const STATUS = ["open", "closed", "canceled"] as const;
 
 function toYMD(d: Date) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${dd}`;
+}
+function startOfToday() {
+  const n = new Date();
+  return new Date(n.getFullYear(), n.getMonth(), n.getDate());
 }
 function parseYMD(s?: string) {
   if (!s) return undefined;
@@ -69,8 +71,11 @@ function formatCEP(raw: string) {
   const digits = String(raw ?? "").replace(/\D/g, "").slice(0, 8);
   return digits.replace(/^(\d{5})(\d{0,3}).*/, (_, a, b) => (b ? `${a}-${b}` : a));
 }
+function timeToHHMMSS(t: string) {
+  return /^\d{2}:\d{2}:\d{2}$/.test(t) ? t : `${t}:00`;
+}
 
-// ViaCEP
+// ViaCEP (aceita string opcional sem erro de TS)
 async function fetchViaCEP(cep?: string): Promise<{ logradouro: string; uf: UF } | null> {
   try {
     if (!cep) return null;
@@ -93,7 +98,7 @@ async function fetchViaCEP(cep?: string): Promise<{ logradouro: string; uf: UF }
 }
 
 // -------------------------------------------------------------
-// Schema
+// Schema (mantemos 'status' local, mas ele não é enviado p/ backend)
 // -------------------------------------------------------------
 const schema = z.object({
   sport: z.custom<SportId>(
@@ -108,7 +113,7 @@ const schema = z.object({
   street: z.string().trim().max(120, "Máximo 120 caracteres").optional().or(z.literal("")),
   title: z.string().trim().max(60, "Máximo 60 caracteres").optional().or(z.literal("")),
   notes: z.string().trim().max(300, "Máximo 300 caracteres").optional().or(z.literal("")),
-  status: z.enum(STATUS),
+  status: z.enum(["open","closed","canceled"] as const), // usado só na UI
   capacity: z.preprocess((v) => {
     if (v === null || v === undefined || v === "" || v === "null") return null;
     const n = Number(v);
@@ -123,39 +128,15 @@ const schema = z.object({
 export type CreateActivityValues = z.infer<typeof schema>;
 
 // -------------------------------------------------------------
-// Backend DTO helper
-// -------------------------------------------------------------
-function statusToBackend(s: CreateActivityValues["status"]) {
-  return s.toUpperCase(); // "OPEN" | "CLOSED" | "CANCELED"
-}
-function timeToHHMMSS(t: string) {
-  return /^\d{2}:\d{2}:\d{2}$/.test(t) ? t : `${t}:00`;
-}
-function getModalidadeIdOrThrow(sportId: SportId): number {
-  const entry: any = SPORTS.find((x) => x.id === sportId);
-  const maybe =
-    entry?.backendId ??
-    entry?.modalidadeId ??
-    entry?.apiId ??
-    entry?.serverId;
-  if (typeof maybe !== "number") {
-    throw new Error(
-      `Configure o backendId para o esporte "${sportId}" em "@/data/sports".`
-    );
-  }
-  return maybe as number;
-}
-
-// -------------------------------------------------------------
 // Component
 // -------------------------------------------------------------
 export default function CreateActivityForm({
   className,
-  currentUserId,
+  currentUserId,         // não usado no payload — mantenha se quiser telemetria
   defaultUF = "SP",
   defaultCEP = "",
   defaultStreet = "",
-  onCreate, // opcional: callback após sucesso
+  onCreate,
 }: {
   className?: string;
   currentUserId: string;
@@ -210,7 +191,7 @@ export default function CreateActivityForm({
       cepTimer = setTimeout(async () => {
         setIsLoadingCEP(true);
         try {
-          const viaCepData = await fetchViaCEP(cep); // agora pode ser undefined sem erro
+          const viaCepData = await fetchViaCEP(cep);
           if (viaCepData) {
             form.setValue("uf", viaCepData.uf, { shouldValidate: true });
             form.setValue("street", viaCepData.logradouro, { shouldValidate: true });
@@ -229,7 +210,7 @@ export default function CreateActivityForm({
     };
   }, [form]);
 
-  // UI helper (ícone à esquerda)
+  // UI helper
   function WithIcon({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
     return (
       <div className="relative">
@@ -263,55 +244,41 @@ export default function CreateActivityForm({
     try {
       setSubmitting(true);
 
-      const modalidadeId = getModalidadeIdOrThrow(values.sport);
-
-      const dto = {
-        modalidadeId,
-        titulo: values.title?.trim() || null,
-        observacoes: values.notes?.trim() || null,
-        data: values.date, // "YYYY-MM-DD"
-        horario: timeToHHMMSS(values.time), // "HH:mm:ss"
-        cep: values.cep.replace(/\D/g, "").replace(/^(\d{5})(\d{3})$/, "$1-$2"), // 00000-000
+      // ===> DTO EXATAMENTE COMO O BACKEND ESPERA (pt-BR)
+      const semLimite = values.capacity === null;
+      const dtoForApi = {
+        modalidade: values.sport,                                    // ex.: "basquete"
+        titulo: (values.title ?? "").trim() || `Atividade de ${values.sport}`,
+        observacoes: (values.notes ?? "").trim(),
+        data: values.date,                                           // "YYYY-MM-DD"
+        horario: timeToHHMMSS(values.time),                          // "HH:mm:ss"
+        cep: values.cep.replace(/\D/g, "").replace(/^(\d{5})(\d{3})$/, "$1-$2"),
         uf: values.uf,
-        street: values.street?.trim() || null,
-        capacidade: values.capacity, // pode ser null
-        semLimite: values.capacity === null,
-        status: statusToBackend(values.status), // "OPEN" | "CLOSED" | "CANCELED"
+        street: (values.street ?? "").trim(),
+        capacidade: semLimite ? 0 : (values.capacity ?? 1),          // 0 quando semLimite
+        semLimite,                                                   // boolean
+        // NÃO enviar "status" — o service define como OPEN
       };
 
-      // callback externa (se quiser logar/telemetria)
-      if (onCreate) {
-        await onCreate(dto);
-      }
+      if (onCreate) await onCreate(dtoForApi);
 
+      // sua rota /api/atividades faz o proxy para o backend e injeta o Bearer do cookie
       const res = await fetch("/api/atividades", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(dto),
+        body: JSON.stringify(dtoForApi),
       });
 
-      // Sucesso
       if (res.status === 201) {
-        const data = await res.json().catch(() => ({} as any));
-        const id = data?.id as string | undefined;
-        const location = data?.location as string | undefined;
-
-        // tenta redirecionar para o detalhe
-        if (id) {
-          router.push(`/app/atividades/${id}`);
-        } else if (location) {
-          // caso venha Location absoluto
-          try {
-            const m = location.match(/\/atividades\/([0-9a-fA-F-]+)/);
-            if (m) return router.push(`/app/atividades/${m[1]}`);
-          } catch { }
-          router.push("/app"); // fallback
-        } else {
-          router.push("/app");
+        const loc = res.headers.get("Location");
+        if (loc) {
+          const m = loc.match(/\/atividades\/([0-9a-fA-F-]+)/);
+          if (m) {
+            return router.push(`/app/`);
+          }
         }
-
-        // reset do form
+        router.push("/app");
         form.reset({
           sport: undefined as unknown as SportId,
           cep: formatCEP(""),
@@ -327,11 +294,11 @@ export default function CreateActivityForm({
         return;
       }
 
-      // Erros tratados
+      // erros
       let errText = "";
-      try { errText = await res.text(); } catch { }
+      try { errText = await res.text(); } catch {}
       let err: any = null;
-      try { err = errText ? JSON.parse(errText) : null; } catch { }
+      try { err = errText ? JSON.parse(errText) : null; } catch {}
 
       if (res.status === 400) {
         console.error("Validação backend:", err || errText);
@@ -359,7 +326,7 @@ export default function CreateActivityForm({
         onSubmit={form.handleSubmit(submit)}
         className={["grid grid-cols-1 gap-3", className].filter(Boolean).join(" ")}
       >
-        {/* SPORT (single) */}
+        {/* SPORT */}
         <FormField
           control={form.control}
           name="sport"
@@ -378,14 +345,14 @@ export default function CreateActivityForm({
                         >
                           {selectedSport
                             ? (() => {
-                              const s = SPORTS.find((x) => x.id === selectedSport)!;
-                              return (
-                                <span className="inline-flex items-center gap-2">
-                                  <s.Icon className="h-4 w-4" />
-                                  {s.label}
-                                </span>
-                              );
-                            })()
+                                const s = SPORTS.find((x) => x.id === selectedSport)!;
+                                return (
+                                  <span className="inline-flex items-center gap-2">
+                                    <s.Icon className="h-4 w-4" />
+                                    {s.label}
+                                  </span>
+                                );
+                              })()
                             : "Selecione o esporte"}
                           <ChevronDownIcon className="h-4 w-4 opacity-70" />
                         </Button>
@@ -416,9 +383,7 @@ export default function CreateActivityForm({
                                     checked ? "border-amber-500" : "border-muted-foreground/40",
                                   ].join(" ")}
                                 >
-                                  {checked ? (
-                                    <div className="h-2 w-2 rounded-full" />
-                                  ) : null}
+                                  {checked ? <div className="h-2 w-2 rounded-full" /> : null}
                                 </div>
                                 <s.Icon className="h-4 w-4 shrink-0" />
                                 <span className="text-sm">{s.label}</span>
@@ -463,7 +428,7 @@ export default function CreateActivityForm({
           )}
         />
 
-        {/* UF - DISABLED */}
+        {/* UF (somente leitura) */}
         <FormField
           control={form.control}
           name="uf"
@@ -485,7 +450,7 @@ export default function CreateActivityForm({
           )}
         />
 
-        {/* STREET - DISABLED (preenchido via CEP) */}
+        {/* Rua (preenchido via CEP) */}
         <FormField
           control={form.control}
           name="street"
@@ -506,7 +471,7 @@ export default function CreateActivityForm({
           )}
         />
 
-        {/* DATE */}
+        {/* Data */}
         <FormField
           control={form.control}
           name="date"
@@ -534,8 +499,8 @@ export default function CreateActivityForm({
                       mode="single"
                       selected={parseYMD(field.value)}
                       captionLayout="dropdown"
-                      fromDate={new Date()}
-                      disabled={{ before: new Date() }}
+                      fromDate={startOfToday()}
+                      disabled={{ before: startOfToday() }}
                       onSelect={(d) => {
                         if (d) {
                           field.onChange(toYMD(d));
@@ -551,7 +516,7 @@ export default function CreateActivityForm({
           )}
         />
 
-        {/* TIME */}
+        {/* Hora */}
         <FormField
           control={form.control}
           name="time"
@@ -575,7 +540,7 @@ export default function CreateActivityForm({
           )}
         />
 
-        {/* TITLE (opcional) */}
+        {/* Título (opcional) */}
         <FormField
           control={form.control}
           name="title"
@@ -595,7 +560,7 @@ export default function CreateActivityForm({
           )}
         />
 
-        {/* NOTES (opcional) */}
+        {/* Observações (opcional) */}
         <FormField
           control={form.control}
           name="notes"
@@ -615,7 +580,7 @@ export default function CreateActivityForm({
           )}
         />
 
-        {/* CAPACITY + NO LIMIT */}
+        {/* Capacidade + Sem limite */}
         <div className="grid grid-cols-[1fr_auto] gap-2 items-center">
           <FormField
             control={form.control}
@@ -657,41 +622,6 @@ export default function CreateActivityForm({
             </label>
           </div>
         </div>
-
-        {/* STATUS */}
-        <FormField
-          control={form.control}
-          name="status"
-          render={({ field }) => (
-            <FormItem>
-              <FormControl>
-                <div className="flex gap-2">
-                  {STATUS.map((opt) => (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => field.onChange(opt)}
-                      className={[
-                        "flex-1 rounded-md border px-3 py-2 text-sm capitalize",
-                        field.value === opt ? "border-amber-500 bg-amber-50" : "hover:bg-muted",
-                      ].join(" ")}
-                      title={
-                        opt === "open"
-                          ? "Inscrições abertas"
-                          : opt === "closed"
-                            ? "Fechada para novas entradas"
-                            : "Cancelada"
-                      }
-                    >
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
 
         {/* Submit */}
         <div className="flex justify-end">

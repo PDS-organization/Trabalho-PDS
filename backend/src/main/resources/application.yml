@@ -5,6 +5,7 @@ spring:
       mapper:
         accept-case-insensitive-enums: true
 
+
   datasource:
     driver-class-name: org.h2.Driver
     url: jdbc:h2:mem:testdb;MODE=PostgreSQL
@@ -28,8 +29,8 @@ jwt:
 
 logging:
   level:
-    com.luccasaps.projetopds: DEBUG
-    org.springframework.security: DEBUG
+    com.luccasaps.projetopds: INFO
+    org.springframework.security: INFO
 
 
 

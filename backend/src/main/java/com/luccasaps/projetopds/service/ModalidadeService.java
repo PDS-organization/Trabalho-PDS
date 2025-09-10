@@ -6,6 +6,7 @@ import com.luccasaps.projetopds.repository.ModalidadeRepository;
 import com.luccasaps.projetopds.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +16,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor // Cria um construtor com os campos 'final' para injeção de dependência
+@Slf4j
 public class ModalidadeService {
 
     private final UserRepository userRepository;
@@ -22,6 +24,7 @@ public class ModalidadeService {
 
     @Transactional // Garante que toda a operação ocorra em uma única transação
     public void atribuirModalidades(UUID usuarioId, List<String> modalidadesNomes) {
+
         // 1. Busca o usuário no banco de dados. Lança uma exceção se não encontrar.
         // O seu ID de usuário é UUID, então usamos isso.
         User user = userRepository.findById(usuarioId)
@@ -32,7 +35,11 @@ public class ModalidadeService {
 
         // 3. Se a lista de nomes não for vazia, busca as modalidades correspondentes.
         if (modalidadesNomes != null && !modalidadesNomes.isEmpty()) {
+            log.info("modalidadesNomes raw: {}", modalidadesNomes);
+
+
             List<Modalidade> modalidadesEncontradas = modalidadeRepository.findByNomeIn(modalidadesNomes);
+            log.info("encontradas: {}", modalidadesEncontradas.stream().map(Modalidade::getNome).toList());
 
             // Validação importante: verifica se todas as modalidades enviadas existem no banco
             if (modalidadesEncontradas.size() != modalidadesNomes.size()) {
