@@ -16,7 +16,7 @@ public record AtividadeUpdateDTO(
         LocalTime horario,
         String cep,
         String uf,
-        String logradouro,
+        String street,
         Integer capacidade,
         Boolean semLimite,
         String status // Permitimos que o criador altere o status (ex: para CANCELAR)

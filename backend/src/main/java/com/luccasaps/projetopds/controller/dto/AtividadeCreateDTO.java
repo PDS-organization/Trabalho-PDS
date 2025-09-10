@@ -1,11 +1,10 @@
 package com.luccasaps.projetopds.controller.dto;
 
-import com.luccasaps.projetopds.model.Modalidade;
 import jakarta.validation.constraints.*;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.UUID;
+
 
 public record AtividadeCreateDTO(
 

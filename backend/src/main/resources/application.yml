@@ -13,7 +13,7 @@ spring:
   jpa:
     show-sql: true
     hibernate:
-      ddl-auto: update
+      ddl-auto: create-drop
     properties:
       hibernate.hibernate.format_sql: true
     database-platform: org.hibernate.dialect.H2Dialect
@@ -32,3 +32,7 @@ logging:
     org.springframework.security: DEBUG
 
 
+
+geocoding:
+  opencage:
+    api-key: cda8b42687474b0c8e284371303f9ebf

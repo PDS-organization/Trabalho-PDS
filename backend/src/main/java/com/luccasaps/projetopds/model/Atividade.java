@@ -57,6 +57,13 @@ public class Atividade {
     @Column(length = 120)
     private String street; // Campo "Rua Exemplo 123"
 
+    // --- CAMPOS DE COORDENADAS ---
+    @Column(nullable = true) // Pode ser nulo se a geocodificação falhar
+    private Double latitude;
+
+    @Column(nullable = true)
+    private Double longitude;
+
     // --- Capacidade e Status ---
     private Integer capacidade; // Campo "Capacidade"
 
