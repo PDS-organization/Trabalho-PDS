@@ -68,7 +68,7 @@ public class UserService{
             // garanta que já venham MAIÚSCULAS do front, mas dá pra forçar aqui:
             List<String> upper = modalidadesNomes.stream()
                     .filter(Objects::nonNull)
-                    .map(s -> s.toUpperCase(Locale.ROOT))
+                    .map(s -> s.toLowerCase(Locale.ROOT))
                     .toList();
 
             List<Modalidade> modalidades = modalidadeRepository.findByNomeIn(upper);

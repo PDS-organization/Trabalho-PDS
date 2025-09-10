@@ -130,7 +130,7 @@ export default function Navbar() {
                   data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95
                   data-[state=closed]:animate-out data-[state=closed]:zoom-out-95 data-[state=closed]:fade-out-0"
                 />
-                <NavigationMenuItem>
+                {/* <NavigationMenuItem>
                   <NavigationMenuLink asChild active={isActive("/app/buscar")}>
                     <Link
                       href="/app/buscar"
@@ -139,7 +139,7 @@ export default function Navbar() {
                       Buscar parceiros
                     </Link>
                   </NavigationMenuLink>
-                </NavigationMenuItem>
+                </NavigationMenuItem> */}
 
                 <NavigationMenuItem>
                   <NavigationMenuLink asChild active={isActive("/app/criar")}>
@@ -206,7 +206,7 @@ export default function Navbar() {
                           Perfil
                         </Link>
                       </li>
-                      <li>
+                      {/* <li>
                         <Link
                           href="/app/minhas-atividades"
                           className={`block rounded-md px-2 py-1.5 text-sm transition-colors ${isActive("/app/minhas-atividades") ? activeLink : hoverLink}`}
@@ -221,7 +221,7 @@ export default function Navbar() {
                         >
                           Matches pendentes
                         </Link>
-                      </li>
+                      </li> */}
                       <li>
                         <Link
                           href={editHref}

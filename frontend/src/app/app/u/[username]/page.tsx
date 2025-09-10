@@ -1,122 +1,123 @@
-import { cookies } from "next/headers";
+// app/app/u/[username]/page.tsx
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import path from "node:path";
-import fs from "node:fs/promises";
+import { cookies } from "next/headers";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { SPORTS, type SportId } from "../../../../data/sports";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { SPORTS, type SportId } from "@/data/sports";
 
-export const runtime = "nodejs";
-
-type UserRecord = {
+type UserResponse = {
   id: string;
   name: string;
   email: string;
   username: string;
-  birthdate?: string;
-  gender?: "masculino" | "feminino" | "nao_informar" | "outro";
-  cep?: string;
-  uf?: string;
-  street?: string;
-  sports?: string[];
-  avatarUrl?: string;
+  genero?: string;
+  phone?: string;
+  modalidades?: string[];
 };
 
-const FILE_PATH = path.join(process.cwd(), "data", "fake_users.jsonl");
+export const dynamic = "force-dynamic";
 
-async function findByUsername(username: string): Promise<UserRecord | null> {
-  const want = username.toLowerCase();
-  try {
-    const buf = await fs.readFile(FILE_PATH, "utf8");
-    const lines = buf.trim().split("\n").filter(Boolean);
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const u = JSON.parse(lines[i]) as UserRecord;
-      if (u.username?.toLowerCase() === want) return u;
-    }
-  } catch {}
-  return null;
+function generoLabel(g?: string) {
+  if (!g) return "-";
+  const t = g.toUpperCase();
+  if (t === "MASCULINO") return "Masculino";
+  if (t === "FEMININO") return "Feminino";
+  return t.charAt(0) + t.slice(1).toLowerCase();
 }
-
-function formatDateBR(ymd?: string) {
-  if (!ymd) return "-";
-  const [y, m, d] = ymd.split("-");
-  if (!y || !m || !d) return "-";
-  return `${d}/${m}/${y}`;
-}
-
-const GENDER_LABEL: Record<NonNullable<UserRecord["gender"]>, string> = {
-  masculino: "Masculino",
-  feminino: "Feminino",
-  outro: "Outro",
-  nao_informar: "Prefiro não informar",
-};
 
 export default async function PerfilPage({ params }: { params: { username: string } }) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("sb:session")?.value ?? null;
-  const session = await verifySession<{ sub: string }>(token);
-  if (!session) redirect(`/login?next=/app/u/${params.username}`);
+  const token = (await cookies()).get("sb_session")?.value;
+  if (!token) redirect(`/login?next=/app/u/${params.username}`);
 
-  const user = await findByUsername(params.username);
-  if (!user) redirect("/app");
+  const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
 
-  const sportDefs = (user.sports ?? [])
-    .map((id) => {
-      const def = SPORTS.find((s) => s.id === (id as SportId));
-      return def ?? null;
-    })
+  const res = await fetch(`${API}/users/${encodeURIComponent(params.username)}`, {
+    headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+
+  if (res.status === 401) redirect(`/login?next=/app/u/${params.username}`);
+  if (res.status === 404) redirect("/app");
+  if (!res.ok) redirect("/app");
+
+  const user = (await res.json()) as UserResponse;
+
+  const sportDefs = (user.modalidades ?? [])
+    .map((id) => SPORTS.find((s) => s.id === (id as SportId)) || null)
     .filter(Boolean) as typeof SPORTS;
 
+  const initial = (user.name ?? user.email ?? user.username ?? "U")
+    .toString()
+    .trim()
+    .slice(0, 1)
+    .toUpperCase();
+
   return (
-    <main className="min-h-screen pt-4 sm:pt-6">
-      <div className="flex items-center gap-3">
-        <Avatar className="h-12 w-12 ring-1 ring-border">
-          <AvatarImage src={user.avatarUrl} alt={user.name} />
-          <AvatarFallback>{(user.name ?? user.email ?? "U").slice(0, 1).toUpperCase()}</AvatarFallback>
-        </Avatar>
-        <div className="min-w-0">
-          <h1 className="text-lg font-semibold truncate">{user.name}</h1>
-          <p className="text-sm text-muted-foreground truncate">@{user.username}</p>
-        </div>
+    <main className="mx-auto w-full max-w-3xl px-4 py-5 sm:py-6">
+      {/* Topbar */}
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h1 className="text-lg font-semibold sm:text-xl">Perfil</h1>
+        <Button asChild variant="outline" size="sm" className="h-9 px-3">
+          <Link href="/app">Voltar</Link>
+        </Button>
       </div>
 
-      <Card className="mt-4">
-        <CardContent className="p-4">
-          <dl className="grid grid-cols-1 gap-3 text-sm">
-            <div>
-              <dt className="text-muted-foreground">Data de nascimento</dt>
-              <dd className="font-medium">{formatDateBR(user.birthdate)}</dd>
+      {/* Cabeçalho do perfil (mobile-first: empilha) */}
+      <section className="flex items-start gap-3">
+        <Avatar className="h-14 w-14 sm:h-16 sm:w-16 ring-1 ring-border">
+          <AvatarImage alt={user.name} />
+          <AvatarFallback className="text-base sm:text-lg">{initial}</AvatarFallback>
+        </Avatar>
+
+        <div className="min-w-0 flex-1">
+          <h2 className="text-base sm:text-lg font-semibold leading-tight truncate">
+            {user.name ?? "(sem nome)"}
+          </h2>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <Badge variant="secondary" className="text-xs px-2 py-0.5">@{user.username}</Badge>
+          </div>
+        </div>
+      </section>
+
+      {/* Card de informações */}
+      <Card className="mt-5 border-muted">
+        <CardContent className="p-4 sm:p-5">
+          {/* Informações principais */}
+          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5 text-[0.92rem]">
+            <div className="space-y-1">
+              <dt className="text-muted-foreground text-xs">E-mail</dt>
+              <dd className="font-medium break-all">{user.email}</dd>
             </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <div>
-                <dt className="text-muted-foreground">Gênero</dt>
-                <dd className="font-medium">{user.gender ? GENDER_LABEL[user.gender] : "-"}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">CEP</dt>
-                <dd className="font-medium">{user.cep || "-"}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">UF</dt>
-                <dd className="font-medium">{user.uf || "-"}</dd>
-              </div>
+            <div className="space-y-1">
+              <dt className="text-muted-foreground text-xs">Gênero</dt>
+              <dd className="font-medium">{generoLabel(user.genero)}</dd>
             </div>
-            <div>
-              <dt className="text-muted-foreground">Rua</dt>
-              <dd className="font-medium">{user.street || "-"}</dd>
+            <div className="space-y-1">
+              <dt className="text-muted-foreground text-xs">Telefone</dt>
+              <dd className="font-medium">{user.phone || "-"}</dd>
             </div>
           </dl>
 
-          <div className="mt-4">
-            <div className="text-muted-foreground text-sm mb-2">Esportes</div>
+          <Separator className="my-4 sm:my-5" />
+
+          {/* Modalidades */}
+          <div>
+            <div className="text-muted-foreground text-xs mb-2">Esportes</div>
             {sportDefs.length === 0 ? (
-              <p className="text-sm">Nenhum esporte selecionado.</p>
+              <p className="text-sm">Nenhuma modalidade informada.</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {sportDefs.map((s) => (
-                  <Badge key={s.id} variant="secondary" className="gap-1.5">
-                    <s.Icon className="h-3.5 w-3.5 text-amber-500" />
+                  <Badge
+                    key={s.id}
+                    variant="secondary"
+                    className="gap-1.5 px-2.5 py-1 text-xs sm:text-sm"
+                  >
+                    <s.Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-500" />
                     {s.label}
                   </Badge>
                 ))}
