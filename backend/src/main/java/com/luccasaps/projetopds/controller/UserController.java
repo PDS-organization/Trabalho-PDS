@@ -1,5 +1,6 @@
 package com.luccasaps.projetopds.controller;
 
+import com.luccasaps.projetopds.controller.dto.PageResponseDTO;
 import com.luccasaps.projetopds.controller.dto.UserDTO;
 import com.luccasaps.projetopds.controller.dto.UserResponseDTO;
 import com.luccasaps.projetopds.controller.dto.UserUpdateDTO;
@@ -10,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -35,10 +37,24 @@ public class UserController implements GenericController {
     }
 
     @GetMapping
-    public ResponseEntity<Page<UserResponseDTO>> findAll(Pageable pageable){
+    public ResponseEntity<PageResponseDTO<UserResponseDTO>> findAll(Pageable pageable){
         Page<User> userPage = userService.findAll(pageable);
         Page<UserResponseDTO> userResponsePage = userPage.map(userMapper::toResponseDTO);
-        return ResponseEntity.ok(userResponsePage);
+
+        PageResponseDTO<UserResponseDTO> response = new PageResponseDTO<>(
+                userResponsePage.getContent(),
+                userResponsePage.getNumber(),
+                userResponsePage.getTotalElements(),
+                userResponsePage.getTotalPages()
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{username}")
+    public ResponseEntity<UserResponseDTO> findByUsername(@PathVariable String username){
+        UserResponseDTO userResponseDTO = userService.findByUsername(username);
+        return ResponseEntity.ok().body(userResponseDTO);
     }
 
     @PutMapping
@@ -49,5 +65,12 @@ public class UserController implements GenericController {
         User updateUser = userService.update(username,userUpdateDTO);
 
         return ResponseEntity.ok(userMapper.toResponseDTO(updateUser));
+    }
+
+    @DeleteMapping("/me")
+    @ResponseStatus(HttpStatus.NO_CONTENT) // Retorna 204 No Content em caso de sucesso
+    public void deleteSelf(Authentication authentication) {
+        String username = authentication.getName();
+        userService.deleteSelf(username);
     }
 }

@@ -10,7 +10,7 @@ spring:
   jpa:
     show-sql: true
     hibernate:
-      ddl-auto: update
+      ddl-auto: create-drop
     properties:
       hibernate.hibernate.format_sql: true
     database-platform: org.hibernate.dialect.H2Dialect
@@ -22,3 +22,7 @@ spring:
 jwt:
   secret: ZXhlbXBsby1kZS1jaGF2ZS1zZWNyZXRhLXBhcmEtdGVzdGVzLWxvY2Fpcy1uYW8tdXNhci1lbS1wcm9kdWNhby0xMjM0NQ
   expiration: 7200000
+
+geocoding:
+  opencage:
+    api-key: cda8b42687474b0c8e284371303f9ebf
