@@ -27,7 +27,7 @@ public class AutenticacaoController {
     @PostMapping
     public ResponseEntity<DadosTokenJWTDTO> efetuarLogin(@RequestBody @Valid DadosAutenticacaoDTO dados) {
         // 1. Cria um objeto de autenticação com as credenciais recebidas
-        var authenticationToken = new UsernamePasswordAuthenticationToken(dados.username(), dados.password());
+        var authenticationToken = new UsernamePasswordAuthenticationToken(dados.email(), dados.password());
 
         // 2. Chama o AuthenticationManager do Spring Security para validar as credenciais
         //    Ele irá usar o nosso PasswordEncoder e buscar o usuário no banco para comparar

@@ -1,6 +1,9 @@
 spring:
   application:
     name: ProjetoPDS
+    jackson:
+      mapper:
+        accept-case-insensitive-enums: true
 
   datasource:
     driver-class-name: org.h2.Driver
@@ -22,6 +25,13 @@ spring:
 jwt:
   secret: ZXhlbXBsby1kZS1jaGF2ZS1zZWNyZXRhLXBhcmEtdGVzdGVzLWxvY2Fpcy1uYW8tdXNhci1lbS1wcm9kdWNhby0xMjM0NQ
   expiration: 7200000
+
+logging:
+  level:
+    com.luccasaps.projetopds: DEBUG
+    org.springframework.security: DEBUG
+
+
 
 geocoding:
   opencage:

@@ -9,46 +9,76 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Collections;
 
 @Component
 @AllArgsConstructor
 public class SecurityFilter extends OncePerRequestFilter {
 
-    private final TokenService tokenService;
+    private static final Logger log = LoggerFactory.getLogger(SecurityFilter.class);
 
+    private final TokenService tokenService;
     private final UserRepository userRepository;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        var tokenJWT = recuperarToken(request);
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain
+    ) throws ServletException, IOException {
 
-        if (tokenJWT != null) {
-            var subject = tokenService.getSubject(tokenJWT); // O subject é o email
+        try {
+            String tokenJWT = recuperarToken(request);
 
-            // 1. O repositório agora retorna um objeto 'User'
-            User user = userRepository.findByUsername(subject);
+            if (tokenJWT != null && !tokenJWT.isBlank() && SecurityContextHolder.getContext().getAuthentication() == null) {
+                String subject = tokenService.getSubject(tokenJWT); // pode ser null se inválido/expirado
+                log.debug("JWT subject: {}", subject);
 
-            if (user != null) {
-                // 2. Mesmo 'user' sendo do tipo User, ele também é um UserDetails.
-                //    Então podemos usá-lo diretamente para criar a autenticação.
-                var authentication = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                if (subject != null && !subject.isBlank()) {
+                    // 👇 use ignore-case pra não falhar por maiúsculas/minúsculas
+                    User user = userRepository.findByEmailIgnoreCase(subject).orElse(null);
+                    if (user != null) {
+                        var authorities = user.getAuthorities();
+                        if (authorities == null) authorities = Collections.emptyList();
+
+                        var authentication = new UsernamePasswordAuthenticationToken(
+                                user, null, authorities
+                        );
+                        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                        log.debug("JWT authenticated: principal={}, authorities={}", user.getEmail(), authorities);
+                    } else {
+                        log.debug("User not found for email (ignore-case): {}", subject);
+                        SecurityContextHolder.clearContext();
+                    }
+                } else {
+                    log.debug("Invalid/expired JWT (no subject)");
+                    SecurityContextHolder.clearContext();
+                }
             }
+        } catch (Exception e) {
+            // qualquer falha não deve virar 500
+            log.debug("SecurityFilter error: {}", e.toString());
+            SecurityContextHolder.clearContext();
         }
 
         filterChain.doFilter(request, response);
     }
 
     private String recuperarToken(HttpServletRequest request) {
-        var authorizationHeader = request.getHeader("Authorization");
-        if (authorizationHeader != null) {
-            return authorizationHeader.replace("Bearer ", "");
+        String authorizationHeader = request.getHeader("Authorization");
+        if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+            return authorizationHeader.substring("Bearer ".length());
         }
         return null;
     }

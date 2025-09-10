@@ -14,11 +14,13 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.*;
 
@@ -36,29 +38,46 @@ public class UserService{
     @Transactional
     public User save(UserDTO userDTO){
 
-        if(userRepository.findByEmail(userDTO.email()).isPresent()){
-            throw new RuntimeException("Este email já está em uso.");
+        // normaliza para consistência
+        final String email = userDTO.email().toLowerCase(Locale.ROOT);
+        final String username = userDTO.username().toLowerCase(Locale.ROOT); // ajuste ao seu DTO
+
+        // checa e-mail duplicado
+        if (userRepository.findByEmailIgnoreCase(email).isPresent()) {
+            // 409 + code legível para o front
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "EMAIL_TAKEN");
+        }
+
+        // (opcional, mas recomendado) checar username duplicado também
+        if (userRepository.findOptionalByUsername(username).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "USERNAME_TAKEN");
         }
 
         User user = userMapper.toEntity(userDTO);
 
+        user.setEmail(email);
+        user.setUsername(username);
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-
         user.setCep(userDTO.cep().replaceAll("\\D", ""));
         user.setUf(userDTO.uf().toUpperCase(Locale.ROOT));
         user.setStreet(userDTO.street());
 
-        // 3. Processa e associa as modalidades
+        // Modalidades
         List<String> modalidadesNomes = userDTO.modalidadesNomes();
         if (modalidadesNomes != null && !modalidadesNomes.isEmpty()) {
-            List<Modalidade> modalidades = modalidadeRepository.findByNomeIn(modalidadesNomes);
-            if (modalidades.size() != modalidadesNomes.size()) {
-                throw new EntityNotFoundException("Uma ou mais modalidades não existem.");
+            // garanta que já venham MAIÚSCULAS do front, mas dá pra forçar aqui:
+            List<String> upper = modalidadesNomes.stream()
+                    .filter(Objects::nonNull)
+                    .map(s -> s.toUpperCase(Locale.ROOT))
+                    .toList();
+
+            List<Modalidade> modalidades = modalidadeRepository.findByNomeIn(upper);
+            if (modalidades.size() != upper.size()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "MODALIDADE_INVALIDA");
             }
             user.setModalidades(new HashSet<>(modalidades));
         }
 
-        // 4. Salva e RETORNA a entidade persistida
         return userRepository.save(user);
     }
 
@@ -80,11 +99,9 @@ public class UserService{
         User user = userRepository.findOptionalByUsername(username)
                 .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado: " + username));
 
-        // 2. Usa o mapper para atualizar os campos simples (name, email, phone, etc.)
-        // O mapper irá ignorar automaticamente qualquer campo que seja nulo no DTO.
+
         userMapper.updateEntityFromDTO(userUpdateDTO, user);
 
-        // 3. Lógica especial para a senha: só atualiza se uma nova for enviada
         if (StringUtils.hasText(userUpdateDTO.password())) {
             user.setPassword(passwordEncoder.encode(userUpdateDTO.password()));
         }
