@@ -24,7 +24,7 @@ spring:
       enabled: true
 
 jwt:
-  secret: ZXhlbXBsby1kZS1jaGF2ZS1zZWNyZXRhLXBhcmEtdGVzdGVzLWxvY2Fpcy1uYW8tdXNhci1lbS1wcm9kdWNhby0xMjM0NQ
+  secret: 
   expiration: 7200000
 
 logging:
@@ -36,4 +36,4 @@ logging:
 
 geocoding:
   opencage:
-    api-key: cda8b42687474b0c8e284371303f9ebf
+    api-key: 
